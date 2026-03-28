@@ -18,7 +18,7 @@ export default function Home() {
                   className="text-xs font-bold uppercase tracking-[0.3em] text-foreground-muted"
                   style={{ fontFamily: "var(--font-space-mono)" }}
                 >
-                  AI-POWERED TALK SHOWS
+                  AI TALK SHOWS
                 </p>
 
                 <h1
@@ -33,7 +33,7 @@ export default function Home() {
                 </h1>
 
                 <p className="max-w-2xl text-lg leading-relaxed text-foreground-muted md:text-xl">
-                  Pick a late-night talk show style — John Oliver, Seth Meyers, or SNL Weekend Update.
+                  Pick a late-night talk show style like John Oliver, Seth Meyers, or SNL Weekend Update.
                   Give it any topic. Watch an AI-generated episode come to life in seconds.
                 </p>
 

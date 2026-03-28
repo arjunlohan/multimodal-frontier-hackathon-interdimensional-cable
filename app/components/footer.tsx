@@ -73,7 +73,7 @@ export function Footer({ variant = "minimal" }: FooterProps) {
             className="max-w-md text-xs leading-relaxed text-foreground-light/60"
             style={{ fontFamily: "var(--font-space-mono)" }}
           >
-            Reference architecture for video intelligence pipelines
+            AI-generated talk shows — pick a format, give it a topic, watch it come to life
           </p>
         </div>
       </footer>
@@ -89,14 +89,14 @@ export function Footer({ variant = "minimal" }: FooterProps) {
           className="text-xs tracking-widest text-foreground-light"
           style={{ fontFamily: "var(--font-space-mono)" }}
         >
-          Reference architecture for video intelligence pipelines
+          AI-generated talk shows — pick a format, give it a topic, watch it come to life
         </p>
         <div className="flex items-center gap-6">
           <Link href="/" className="text-xs text-foreground-light/60 hover:text-white">
             Home
           </Link>
           <a
-            href="https://github.com/muxinc/nextjs-try-workflows"
+            href="https://github.com/arjunlohan/multimodal-frontier-hackathon-interdimensional-cable"
             target="_blank"
             rel="noreferrer"
             className="text-xs text-foreground-light/60 hover:text-white"
