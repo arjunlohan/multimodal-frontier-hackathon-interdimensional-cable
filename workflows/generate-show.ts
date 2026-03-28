@@ -360,45 +360,46 @@ async function generateClipsStep(
     orderBy: (vc, { asc }) => [asc(vc.clipIndex)],
   });
 
-  // Generate ALL clips in parallel
-  console.log("[workflow:generate-clips] Generating", clips.length, "clips in parallel...");
-  const results = await Promise.allSettled(
-    clips.map(async (clip) => {
-      console.log("[workflow:generate-clips] Starting clip", clip.clipIndex);
+  // Generate clips sequentially to avoid Veo rate limits.
+  // Each clip may trigger 2 API calls (reference image attempt + fallback),
+  // so parallel generation easily exceeds the quota.
+  console.log("[workflow:generate-clips] Generating", clips.length, "clips sequentially...");
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const clip of clips) {
+    console.log("[workflow:generate-clips] Starting clip", clip.clipIndex);
+    await db.update(schema.videoClips)
+      .set({ status: "generating" })
+      .where(eq(schema.videoClips.id, clip.id));
+
+    try {
+      const result = await generateVideoClip(
+        clip.prompt,
+        template.referenceImageUrl ?? undefined,
+      );
+
+      console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
       await db.update(schema.videoClips)
-        .set({ status: "generating" })
+        .set({ status: "ready", videoUrl: result.localPath })
         .where(eq(schema.videoClips.id, clip.id));
+      successCount++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Clip generation failed";
+      console.error("[workflow:generate-clips] Clip", clip.clipIndex, "FAILED:", message);
+      await db.update(schema.videoClips)
+        .set({ status: "failed", error: message })
+        .where(eq(schema.videoClips.id, clip.id));
+      failCount++;
+    }
+  }
 
-      try {
-        const result = await generateVideoClip(
-          clip.prompt,
-          template.referenceImageUrl ?? undefined,
-        );
-
-        console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
-        await db.update(schema.videoClips)
-          .set({ status: "ready", videoUrl: result.localPath })
-          .where(eq(schema.videoClips.id, clip.id));
-
-        return result;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Clip generation failed";
-        console.error("[workflow:generate-clips] Clip", clip.clipIndex, "FAILED:", message);
-        await db.update(schema.videoClips)
-          .set({ status: "failed", error: message })
-          .where(eq(schema.videoClips.id, clip.id));
-        throw err;
-      }
-    }),
-  );
-
-  const failures = results.filter(r => r.status === "rejected");
-  if (failures.length === results.length) {
+  if (successCount === 0) {
     throw new Error("All video clips failed to generate");
   }
 
-  if (failures.length > 0) {
-    console.warn(`${failures.length}/${results.length} clips failed, continuing with available clips`);
+  if (failCount > 0) {
+    console.warn(`${failCount}/${clips.length} clips failed, continuing with ${successCount} available clips`);
   }
 
   await writeToStream(progress, { type: "completed", step: "generate-clips" });

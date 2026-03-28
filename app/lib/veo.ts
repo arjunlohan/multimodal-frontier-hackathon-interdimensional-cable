@@ -57,13 +57,39 @@ type ReferenceImage = {
  * Core video generation call — sends the request, polls, downloads.
  * Returns null with a reason string if the content was filtered,
  * so callers can decide whether to retry.
+ * Retries on 429 rate-limit errors with exponential backoff.
  */
 async function callVeo(
   client: GoogleGenAI,
   prompt: string,
   referenceImages: ReferenceImage[],
+  maxRetries = 3,
 ): Promise<{ result: VideoClipResult } | { filtered: string }> {
   const label = referenceImages.length > 0 ? "(with reference image)" : "(no reference image)";
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await callVeoOnce(client, prompt, referenceImages, label);
+    } catch (err) {
+      const is429 = err instanceof Error
+        && (err.message.includes("429") || err.message.includes("RESOURCE_EXHAUSTED"));
+      if (!is429 || attempt === maxRetries) throw err;
+
+      const backoffMs = Math.min(30_000, 10_000 * 2 ** attempt);
+      console.log(`[veo] Rate limited (429), retrying in ${backoffMs / 1000}s (attempt ${attempt + 1}/${maxRetries})...`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  throw new Error("Unreachable");
+}
+
+async function callVeoOnce(
+  client: GoogleGenAI,
+  prompt: string,
+  referenceImages: ReferenceImage[],
+  label: string,
+): Promise<{ result: VideoClipResult } | { filtered: string }> {
   console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...", label);
 
   let operation = await client.models.generateVideos({
