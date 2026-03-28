@@ -87,24 +87,28 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
 
     // Start the generation workflow
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/workflows/generate-show`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId: show.id }),
-        },
-      );
+      const workflowUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/workflows/generate-show`;
+      console.log("[createShowAction] Starting workflow at:", workflowUrl, "showId:", show.id);
+
+      const res = await fetch(workflowUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showId: show.id }),
+      });
       const data = await res.json();
+      console.log("[createShowAction] Workflow response:", res.status, JSON.stringify(data));
 
       if (data.runId) {
         await db
           .update(schema.generatedShows)
           .set({ workflowRunId: data.runId })
           .where(eq(schema.generatedShows.id, show.id));
+        console.log("[createShowAction] Saved runId:", data.runId);
+      } else if (data.error) {
+        console.error("[createShowAction] Workflow returned error:", data.error);
       }
     } catch (err) {
-      console.error("Failed to start generation workflow:", err);
+      console.error("[createShowAction] Failed to start generation workflow:", err);
       // Show was created — the user can retry from the progress page
     }
 

@@ -18,6 +18,7 @@ export async function stitchClips(
   clipPaths: string[],
   outputPath?: string,
 ): Promise<string> {
+  console.log("[stitch] stitchClips called with", clipPaths.length, "clips");
   if (clipPaths.length === 0) {
     throw new Error("No clips to stitch");
   }
@@ -43,6 +44,7 @@ export async function stitchClips(
 
   try {
     // First try lossless concat (fast, works when codecs match)
+    console.log("[stitch] Attempting lossless concat to:", output);
     await execFileAsync("ffmpeg", [
       "-y",
       "-f", "concat",
@@ -51,9 +53,9 @@ export async function stitchClips(
       "-c", "copy",
       output,
     ], { timeout: 120_000 });
-  } catch {
+  } catch (concatErr) {
     // Fallback: re-encode if codecs don't match
-    console.warn("Lossless concat failed, falling back to re-encode...");
+    console.warn("[stitch] Lossless concat failed, falling back to re-encode:", concatErr);
     await execFileAsync("ffmpeg", [
       "-y",
       "-f", "concat",

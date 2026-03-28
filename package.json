@@ -16,7 +16,9 @@
     "remotion:studio": "remotion studio remotion/index.ts --port 5432",
     "remotion:render:local": "remotion render",
     "remotion:deploy": "node remotion/deploy.mjs",
-    "visualize:workflows": "npx workflow web"
+    "visualize:workflows": "npx workflow web",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.86",
@@ -51,6 +53,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9",
@@ -59,6 +62,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.2"
   }
 }

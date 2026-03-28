@@ -53,7 +53,12 @@ export async function pollShowStatusAction(showId: string): Promise<{
       },
     });
 
-    if (!show) return { status: "failed", error: "Show not found" };
+    if (!show) {
+      console.warn("[pollShowStatus] Show not found:", showId);
+      return { status: "failed", error: "Show not found" };
+    }
+
+    console.log("[pollShowStatus] showId:", showId, "status:", show.status, show.error ? `error: ${show.error}` : "");
 
     return {
       status: show.status,
@@ -61,7 +66,7 @@ export async function pollShowStatusAction(showId: string): Promise<{
       muxPlaybackId: show.muxPlaybackId ?? undefined,
     };
   } catch (error) {
-    console.error("Failed to poll show status:", error);
+    console.error("[pollShowStatus] Failed:", error);
     return { status: "failed", error: "Failed to check status" };
   }
 }

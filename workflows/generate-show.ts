@@ -53,20 +53,30 @@ export async function generateShowWorkflow(
   const progress = getWritable<ProgressEvent>({ namespace: "progress" });
 
   try {
+    console.log("[workflow] Starting research step for showId:", showId);
     await researchStep(progress, showId);
     completedSteps.push("research");
+    console.log("[workflow] Research step completed");
 
+    console.log("[workflow] Starting script step");
     await scriptStep(progress, showId);
     completedSteps.push("script");
+    console.log("[workflow] Script step completed");
 
+    console.log("[workflow] Starting generate-clips step");
     await generateClipsStep(progress, showId);
     completedSteps.push("generate-clips");
+    console.log("[workflow] Generate-clips step completed");
 
+    console.log("[workflow] Starting stitch step");
     await stitchStep(progress, showId);
     completedSteps.push("stitch");
+    console.log("[workflow] Stitch step completed");
 
+    console.log("[workflow] Starting upload step");
     await uploadStep(progress, showId);
     completedSteps.push("upload");
+    console.log("[workflow] Upload step completed — all done!");
 
     return {
       success: true,
@@ -75,6 +85,9 @@ export async function generateShowWorkflow(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Show generation failed";
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[workflow] FAILED at step after:", completedSteps, "error:", message);
+    if (stack) console.error("[workflow] Stack trace:", stack);
 
     // Mark show as failed in a step (can't use Node.js modules in workflow fn)
     await markFailedStep(showId, message);
@@ -100,6 +113,7 @@ export async function generateShowWorkflow(
 
 async function markFailedStep(showId: string, errorMessage: string): Promise<void> {
   "use step";
+  console.log("[workflow:markFailed] Marking show as failed:", showId, "error:", errorMessage);
   const { eq } = await import("drizzle-orm");
   const { db, schema } = await getDb();
   await db.update(schema.generatedShows)
@@ -131,6 +145,7 @@ async function researchStep(
   });
 
   if (!show) throw new Error("Show not found");
+  console.log("[workflow:research] Show found:", show.id, "topic:", show.topic, "type:", show.topicType);
 
   // Fetch URL content if needed
   let topicContent = show.topic;
@@ -159,7 +174,9 @@ Familiarity level: ${show.familiarity} (${
 
 Provide a comprehensive research brief in 500-1000 words.`;
 
+  console.log("[workflow:research] Calling Gemini for research...");
   const researchContext = await generateText(researchPrompt, "You are a research assistant for a comedy talk show. Gather comprehensive information that can be turned into entertaining commentary.");
+  console.log("[workflow:research] Gemini returned", researchContext.length, "chars");
 
   await db.update(schema.generatedShows)
     .set({ researchContext })
@@ -246,7 +263,9 @@ Format your response as JSON array:
 [{"speaker": "HostName", "text": "segment text here", "clipIndex": 0, "position": "left|right|center"}, ...]`;
   }
 
+  console.log("[workflow:script] Calling Gemini for script, clipCount:", clipCount);
   const scriptResult = await generateText(scriptPrompt, "You are an Emmy-winning comedy writer. Write scripts that are genuinely funny, sharp, and perfectly capture each host's voice. Output valid JSON only, no markdown fences.");
+  console.log("[workflow:script] Gemini returned", scriptResult.length, "chars");
 
   // Parse the JSON response
   let segments: TranscriptSegment[];
@@ -342,8 +361,10 @@ async function generateClipsStep(
   });
 
   // Generate ALL clips in parallel
+  console.log("[workflow:generate-clips] Generating", clips.length, "clips in parallel...");
   const results = await Promise.allSettled(
     clips.map(async (clip) => {
+      console.log("[workflow:generate-clips] Starting clip", clip.clipIndex);
       await db.update(schema.videoClips)
         .set({ status: "generating" })
         .where(eq(schema.videoClips.id, clip.id));
@@ -354,6 +375,7 @@ async function generateClipsStep(
           template.referenceImageUrl ?? undefined,
         );
 
+        console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
         await db.update(schema.videoClips)
           .set({ status: "ready", videoUrl: result.localPath })
           .where(eq(schema.videoClips.id, clip.id));
@@ -361,6 +383,7 @@ async function generateClipsStep(
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Clip generation failed";
+        console.error("[workflow:generate-clips] Clip", clip.clipIndex, "FAILED:", message);
         await db.update(schema.videoClips)
           .set({ status: "failed", error: message })
           .where(eq(schema.videoClips.id, clip.id));
@@ -434,12 +457,15 @@ async function stitchStep(
   });
 
   const readyClips = clips.filter(c => c.status === "ready" && c.videoUrl);
+  console.log("[workflow:stitch] Ready clips:", readyClips.length, "/", clips.length);
   if (readyClips.length === 0) {
     throw new Error("No video clips available to stitch");
   }
 
   const clipPaths = readyClips.map(c => c.videoUrl!);
+  console.log("[workflow:stitch] Stitching paths:", clipPaths);
   const stitchedPath = await stitchClips(clipPaths);
+  console.log("[workflow:stitch] Stitched output:", stitchedPath);
 
   // Store stitched path temporarily (will be used in upload step)
   await db.update(schema.generatedShows)
@@ -492,7 +518,9 @@ async function uploadStep(
     .where(eq(schema.generatedShows.id, showId));
 
   // Upload to Mux via direct upload
+  console.log("[workflow:upload] Creating Mux direct upload...");
   const { uploadUrl, assetId } = await createDirectUpload();
+  console.log("[workflow:upload] Upload URL created, assetId:", assetId);
 
   // Upload the file
   const fs = await import("node:fs");
@@ -505,12 +533,16 @@ async function uploadStep(
   });
 
   if (!uploadResponse.ok) {
+    const body = await uploadResponse.text();
+    console.error("[workflow:upload] Mux upload failed:", uploadResponse.status, body);
     throw new Error(`Failed to upload to Mux: ${uploadResponse.status}`);
   }
+  console.log("[workflow:upload] File uploaded to Mux, waiting for asset ready...");
 
   // Wait for the asset to be ready
   await sleepMs(3000);
   const readyAsset = await waitForAssetReady(assetId, 5 * 60 * 1000);
+  console.log("[workflow:upload] Asset ready, playback IDs:", readyAsset.playback_ids?.length);
 
   // Extract playback ID
   const playbackId = readyAsset.playback_ids?.[0]?.id;

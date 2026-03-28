@@ -14,9 +14,12 @@ import { generateShowWorkflow } from "@/workflows/generate-show";
  * Returns the run ID immediately so client can poll for status.
  */
 export async function POST(request: Request) {
+  console.log("[generate-show/route] POST received");
   try {
     const clientIp = getClientIpFromRequest(request);
+    console.log("[generate-show/route] Client IP:", clientIp);
     const rateLimitResult = await checkRateLimit(clientIp, "generate-show");
+    console.log("[generate-show/route] Rate limit check:", rateLimitResult.allowed ? "allowed" : "blocked");
 
     if (!rateLimitResult.allowed) {
       const response = NextResponse.json(
@@ -28,6 +31,7 @@ export async function POST(request: Request) {
     }
 
     const { showId } = await request.json();
+    console.log("[generate-show/route] showId:", showId);
 
     if (!showId) {
       return NextResponse.json(
@@ -36,7 +40,9 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("[generate-show/route] Starting workflow...");
     const run = await start(generateShowWorkflow, [showId]);
+    console.log("[generate-show/route] Workflow started, runId:", run.runId);
 
     const response = NextResponse.json({
       message: "Show generation workflow started",
@@ -46,6 +52,7 @@ export async function POST(request: Request) {
     addRateLimitHeaders(response.headers, rateLimitResult);
     return response;
   } catch (error) {
+    console.error("[generate-show/route] POST error:", error);
     const message = error instanceof Error ? error.message : "Failed to start workflow";
     return NextResponse.json({ error: message }, { status: 500 });
   }
