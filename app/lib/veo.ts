@@ -48,32 +48,24 @@ function loadReferenceImage(imagePath: string): {
   return { image: { imageBytes, mimeType }, referenceType: "ASSET" };
 }
 
+type ReferenceImage = {
+  image: { imageBytes: string; mimeType: string };
+  referenceType: "ASSET";
+};
+
 /**
- * Generates a video clip using Google's Veo 3.1 model.
- * Produces 8-second 1080p clips with natively generated audio.
- * Optionally uses a reference image to guide the visual style.
+ * Core video generation call — sends the request, polls, downloads.
+ * Returns null with a reason string if the content was filtered,
+ * so callers can decide whether to retry.
  */
-export async function generateVideoClip(
+async function callVeo(
+  client: GoogleGenAI,
   prompt: string,
-  referenceImagePath?: string,
-): Promise<VideoClipResult> {
-  console.log("[veo] generateVideoClip called, prompt length:", prompt.length);
-  const client = getClient();
+  referenceImages: ReferenceImage[],
+): Promise<{ result: VideoClipResult } | { filtered: string }> {
+  const label = referenceImages.length > 0 ? "(with reference image)" : "(no reference image)";
+  console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...", label);
 
-  const referenceImages = referenceImagePath
-    ? [loadReferenceImage(referenceImagePath)].filter(Boolean) as Array<{
-        image: { imageBytes: string; mimeType: string };
-        referenceType: "ASSET";
-      }>
-    : [];
-
-  if (referenceImages.length > 0) {
-    console.log("[veo] Reference image included in request:", referenceImagePath, "| mimeType:", referenceImages[0].image.mimeType, "| base64 length:", referenceImages[0].image.imageBytes.length);
-  } else {
-    console.log("[veo] No reference image provided, generating without style guidance");
-  }
-
-  console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...");
   let operation = await client.models.generateVideos({
     model: "veo-3.1-generate-preview",
     prompt,
@@ -85,9 +77,8 @@ export async function generateVideoClip(
       ...(referenceImages.length > 0 ? { referenceImages } : {}),
     },
   });
-  console.log("[veo] Veo 3.1 request sent successfully", referenceImages.length > 0 ? "(with reference image)" : "(no reference image)");
+  console.log("[veo] Veo 3.1 request sent successfully", label);
 
-  // Poll for completion
   let pollCount = 0;
   while (!operation.done) {
     pollCount++;
@@ -97,7 +88,6 @@ export async function generateVideoClip(
   }
   console.log("[veo] Generation complete after", pollCount, "polls");
 
-  // Check for errors
   if (operation.error) {
     console.error("[veo] Generation error:", JSON.stringify(operation.error));
     throw new Error(`Video generation failed: ${JSON.stringify(operation.error)}`);
@@ -105,29 +95,65 @@ export async function generateVideoClip(
 
   const generatedVideos = operation.response?.generatedVideos;
   if (!generatedVideos || generatedVideos.length === 0) {
-    console.error("[veo] No videos in response:", JSON.stringify(operation.response));
+    const responseStr = JSON.stringify(operation.response ?? {});
+    const isCelebrityFilter = responseStr.includes("celebrity")
+      || responseStr.includes("likenesses")
+      || (operation.response as Record<string, unknown>)?.raiMediaFilteredCount;
+    if (isCelebrityFilter) {
+      const reasons = (operation.response as Record<string, unknown>)?.raiMediaFilteredReasons as string[] | undefined;
+      const reason = reasons?.[0] ?? "Reference image blocked by content filter";
+      console.warn("[veo] Content filter triggered:", reason);
+      return { filtered: reason };
+    }
+    console.error("[veo] No videos in response:", responseStr);
     throw new Error("Video generation completed but no videos returned");
   }
 
   const video = generatedVideos[0];
-
-  // Download using the SDK's files.download method
   const tmpDir = path.join(os.tmpdir(), "interdimensional-cable");
   fs.mkdirSync(tmpDir, { recursive: true });
   const fileName = `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
   const localPath = path.join(tmpDir, fileName);
 
   console.log("[veo] Downloading video to:", localPath);
-  await client.files.download({
-    file: video.video!,
-    downloadPath: localPath,
-  });
+  await client.files.download({ file: video.video!, downloadPath: localPath });
   console.log("[veo] Download complete, size:", fs.statSync(localPath).size, "bytes");
 
-  return {
-    videoUrl: video.video?.uri ?? localPath,
-    localPath,
-  };
+  return { result: { videoUrl: video.video?.uri ?? localPath, localPath } };
+}
+
+/**
+ * Generates a video clip using Google's Veo 3.1 model.
+ * Produces 8-second 1080p clips with natively generated audio.
+ * If a reference image is provided but blocked by the celebrity/content filter,
+ * automatically retries without the reference image.
+ */
+export async function generateVideoClip(
+  prompt: string,
+  referenceImagePath?: string,
+): Promise<VideoClipResult> {
+  console.log("[veo] generateVideoClip called, prompt length:", prompt.length);
+  const client = getClient();
+
+  const referenceImages = referenceImagePath
+    ? [loadReferenceImage(referenceImagePath)].filter(Boolean) as ReferenceImage[]
+    : [];
+
+  if (referenceImages.length > 0) {
+    console.log("[veo] Reference image included in request:", referenceImagePath, "| mimeType:", referenceImages[0].image.mimeType, "| base64 length:", referenceImages[0].image.imageBytes.length);
+
+    const attempt = await callVeo(client, prompt, referenceImages);
+    if ("result" in attempt) return attempt.result;
+
+    console.log("[veo] Retrying WITHOUT reference image due to filter:", attempt.filtered);
+  } else {
+    console.log("[veo] No reference image provided, generating without style guidance");
+  }
+
+  const attempt = await callVeo(client, prompt, []);
+  if ("result" in attempt) return attempt.result;
+
+  throw new Error(`Video generation filtered: ${attempt.filtered}`);
 }
 
 /**

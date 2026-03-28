@@ -81,8 +81,6 @@ export default async function WatchPage({
           <WatchContent
             show={show}
             template={template}
-            hasElevenLabsKey={Boolean(env.ELEVENLABS_API_KEY)}
-            hasRemotionLambdaKeys={Boolean(env.REMOTION_AWS_ACCESS_KEY_ID && env.REMOTION_AWS_SECRET_ACCESS_KEY)}
           />
         </div>
       </main>

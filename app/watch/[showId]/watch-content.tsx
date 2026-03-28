@@ -5,12 +5,10 @@ import Markdown from "react-markdown";
 
 import { PlayerProvider } from "@/app/media/[slug]/player/provider";
 import { VideoPlayer } from "@/app/media/[slug]/player/ui";
-import { Layer2Localization } from "@/app/media/[slug]/localization/ui";
-import { Layer3SocialClips } from "@/app/media/[slug]/social-clips/ui";
-import type { TranscriptCue } from "@/app/media/types";
 
 import { ChatPanel } from "./chat/chat-panel";
 import { ShowTranscript } from "./show-transcript";
+import { DubbingPanel } from "./tts-panel";
 
 import type { GeneratedShow, ShowTemplate } from "@/db/schema";
 
@@ -28,25 +26,15 @@ interface TranscriptSegment {
 interface WatchContentProps {
   show: GeneratedShow;
   template: ShowTemplate;
-  hasElevenLabsKey: boolean;
-  hasRemotionLambdaKeys: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WatchContent({ show, template, hasElevenLabsKey, hasRemotionLambdaKeys }: WatchContentProps) {
+export function WatchContent({ show, template }: WatchContentProps) {
   const hosts = (template.hosts ?? []) as Array<{ name: string; personality: string; position?: string }>;
   const segments = (show.transcriptSegments ?? []) as TranscriptSegment[];
-
-  // Convert transcript segments to TranscriptCue[] for social clips
-  const transcriptCues: TranscriptCue[] = segments.map((seg, i) => ({
-    id: `cue-${i}`,
-    startTime: seg.startTime,
-    endTime: seg.endTime,
-    text: seg.text,
-  }));
 
   return (
     <PlayerProvider>
@@ -82,30 +70,20 @@ export function WatchContent({ show, template, hasElevenLabsKey, hasRemotionLamb
             researchContext={show.researchContext ?? ""}
           />
 
-          {/* Language Switching */}
-          {show.muxAssetId && (
-            <Layer2Localization
-              assetId={show.muxAssetId}
-              hasElevenLabsKey={hasElevenLabsKey}
+          {/* Audio Dubbing */}
+          {show.transcript && (
+            <DubbingPanel
+              transcript={show.transcript}
+              hosts={hosts}
             />
           )}
 
-          {/* Social Clips */}
-          {show.muxAssetId && show.muxPlaybackId && transcriptCues.length > 0 && (
-            <Layer3SocialClips
-              assetId={show.muxAssetId}
-              playbackId={show.muxPlaybackId}
-              playbackPolicy="public"
-              transcriptCues={transcriptCues}
-              title={show.topic}
-              hasRemotionLambdaKeys={hasRemotionLambdaKeys}
-            />
-          )}
+          {/* Social Clips — hidden for now */}
 
           {/* Show Details */}
           <div className="card-flat p-4">
             <div
-              className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
+              className="mb-3 text-[14px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
               style={{ fontFamily: "var(--font-space-mono)" }}
             >
               Show Details
@@ -160,7 +138,7 @@ function ResearchPanel({ content }: { content: string }) {
         className="flex w-full items-center justify-between bg-background-dark px-4 py-3 text-white transition-colors hover:brightness-110"
         style={{ fontFamily: "var(--font-space-mono)" }}
       >
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Research</span>
+        <span className="text-[14px] font-bold uppercase tracking-[0.2em]">Research</span>
         <svg
           className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
