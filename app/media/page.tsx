@@ -1,12 +1,10 @@
-import { asc, count as drizzleCount } from "drizzle-orm";
+import { desc, count as drizzleCount, eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
-import { getPlaybackIdForAsset } from "@/app/lib/mux";
-import { TalkCard } from "@/app/media/talk-card";
-import { getVideoTitle } from "@/app/media/utils";
-import { db, videos } from "@/db";
+import { ShowCard } from "@/app/media/show-card";
+import { db, generatedShows, showTemplates } from "@/db";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -28,37 +26,27 @@ interface MediaPageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-/**
- * Generates an array of page numbers with ellipses for smart pagination display.
- * Shows first page, last page, and a window around the current page.
- */
 function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
-  const delta = 2; // Number of pages to show on each side of current page
+  const delta = 2;
   const pages: (number | "...")[] = [];
 
-  // Always show first page
   pages.push(1);
 
-  // Calculate the range around current page
   const rangeStart = Math.max(2, currentPage - delta);
   const rangeEnd = Math.min(totalPages - 1, currentPage + delta);
 
-  // Add ellipsis after first page if needed
   if (rangeStart > 2) {
     pages.push("...");
   }
 
-  // Add pages in the range
   for (let i = rangeStart; i <= rangeEnd; i++) {
     pages.push(i);
   }
 
-  // Add ellipsis before last page if needed
   if (rangeEnd < totalPages - 1) {
     pages.push("...");
   }
 
-  // Always show last page (if more than 1 page)
   if (totalPages > 1) {
     pages.push(totalPages);
   }
@@ -76,7 +64,6 @@ function Pagination({ currentPage, totalPages, totalItems }: PaginationProps) {
 
   return (
     <div className="mt-12 flex flex-col items-center gap-6 border-t-2 border-border pt-6">
-      {/* Page info */}
       <p
         className="text-sm text-foreground-muted"
         style={{ fontFamily: "var(--font-space-mono)" }}
@@ -91,14 +78,12 @@ function Pagination({ currentPage, totalPages, totalItems }: PaginationProps) {
         {" "}
         {totalItems}
         {" "}
-        talk
+        show
         {totalItems !== 1 ? "s" : ""}
       </p>
 
-      {/* Pagination controls */}
       {totalPages > 1 && (
         <div className="flex items-center gap-2">
-          {/* Previous button */}
           {currentPage > 1 ?
               (
                 <Link
@@ -132,13 +117,11 @@ function Pagination({ currentPage, totalPages, totalItems }: PaginationProps) {
                 </span>
               )}
 
-          {/* Page numbers with smart truncation */}
           <div
             className="flex items-center gap-1 px-4 text-sm"
             style={{ fontFamily: "var(--font-space-mono)" }}
           >
             {getPageNumbers(currentPage, totalPages).map((page, idx) => {
-              // Use position-based key: ellipsis can only appear in 2 spots (after first, before last)
               const key = page === "..." ? `ellipsis-${idx < 3 ? "start" : "end"}` : `page-${page}`;
               return page === "..." ?
                   (
@@ -165,7 +148,6 @@ function Pagination({ currentPage, totalPages, totalItems }: PaginationProps) {
             })}
           </div>
 
-          {/* Next button */}
           {currentPage < totalPages ?
               (
                 <Link
@@ -207,19 +189,17 @@ function Pagination({ currentPage, totalPages, totalItems }: PaginationProps) {
 function EmptyState() {
   return (
     <div className="card-brutal mx-auto max-w-md p-12 text-center">
-      <div className="mb-6 text-6xl">📼</div>
-      <h3 className="mb-3 text-xl font-bold">No talks found</h3>
+      <div className="mb-6 text-6xl">📺</div>
+      <h3 className="mb-3 text-xl font-bold">No shows yet</h3>
       <p className="mb-6 text-foreground-muted">
-        Make sure your Mux account has video assets with public playback IDs.
+        Create your first AI-generated talk show episode.
       </p>
-      <a
-        href="https://dashboard.mux.com"
-        target="_blank"
-        rel="noreferrer"
-        className="btn-outlined inline-block"
+      <Link
+        href="/create"
+        className="btn-action inline-block"
       >
-        Open Mux Dashboard
-      </a>
+        Create a Show
+      </Link>
     </div>
   );
 }
@@ -229,41 +209,38 @@ function EmptyState() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default async function MediaPage({ searchParams }: MediaPageProps) {
-  // Parse page from search params
   const params = await searchParams;
   const currentPage = Math.max(1, Number.parseInt(params.page || "1", 10) || 1);
-
-  // Calculate offset for server-side pagination
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 
-  // Fetch paginated videos from database with total count
-  const [paginatedVideos, [{ count }]] = await Promise.all([
-    db.select().from(videos).orderBy(asc(videos.createdAt)).limit(ITEMS_PER_PAGE).offset(startIndex),
-    db.select({ count: drizzleCount() }).from(videos),
+  const [shows, [{ count }]] = await Promise.all([
+    db
+      .select({
+        id: generatedShows.id,
+        topic: generatedShows.topic,
+        status: generatedShows.status,
+        muxPlaybackId: generatedShows.muxPlaybackId,
+        durationSeconds: generatedShows.durationSeconds,
+        familiarity: generatedShows.familiarity,
+        createdAt: generatedShows.createdAt,
+        templateName: showTemplates.name,
+        showType: showTemplates.showType,
+      })
+      .from(generatedShows)
+      .innerJoin(showTemplates, eq(generatedShows.templateId, showTemplates.id))
+      .where(eq(generatedShows.status, "ready"))
+      .orderBy(desc(generatedShows.createdAt))
+      .limit(ITEMS_PER_PAGE)
+      .offset(startIndex),
+    db
+      .select({ count: drizzleCount() })
+      .from(generatedShows)
+      .where(eq(generatedShows.status, "ready")),
   ]);
 
-  const videoList = paginatedVideos ?? [];
   const totalItems = count ?? 0;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const validPage = Math.min(currentPage, Math.max(1, totalPages));
-
-  // Fetch playback IDs from Mux for current page videos only (in parallel)
-  const playbackResults = await Promise.all(
-    videoList.map(async (video) => {
-      try {
-        const result = await getPlaybackIdForAsset(video.muxAssetId);
-        return result.playbackId;
-      } catch {
-        return null;
-      }
-    }),
-  );
-
-  // Create a map of muxAssetId -> playbackId for easy lookup
-  const playbackIdMap = new Map<string, string | null>();
-  videoList.forEach((video, index) => {
-    playbackIdMap.set(video.muxAssetId, playbackResults[index]);
-  });
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -271,37 +248,36 @@ export default async function MediaPage({ searchParams }: MediaPageProps) {
 
       <main className="flex-1 px-6 py-12">
         <div className="mx-auto max-w-6xl">
-          {/* Page Header */}
           <div className="mb-12">
             <h2
               className="mb-4 text-4xl font-extrabold tracking-tight md:text-5xl"
               style={{ fontFamily: "var(--font-syne)" }}
             >
-              Browse Talks
+              Browse Shows
             </h2>
             <p className="max-w-2xl text-lg text-foreground-muted">
-              Pick a talk to explore sync calls, async workflows, and custom pipelines.
-              Each video demonstrates the three integration levels.
+              Previously generated AI talk show episodes. Pick one to rewatch or continue the conversation.
             </p>
           </div>
 
-          {/* Video Grid */}
-          {videoList.length > 0 ?
+          {shows.length > 0 ?
               (
                 <>
                   <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                    {videoList.map(video => (
-                      <TalkCard
-                        key={video.id}
-                        slug={video.muxAssetId}
-                        title={getVideoTitle(video)}
-                        playbackId={playbackIdMap.get(video.muxAssetId) ?? null}
-                        tags={video.tags ?? []}
+                    {shows.map(show => (
+                      <ShowCard
+                        key={show.id}
+                        id={show.id}
+                        topic={show.topic}
+                        templateName={show.templateName}
+                        showType={show.showType}
+                        playbackId={show.muxPlaybackId}
+                        durationSeconds={show.durationSeconds}
+                        createdAt={show.createdAt}
                       />
                     ))}
                   </div>
 
-                  {/* Pagination */}
                   <Pagination
                     currentPage={validPage}
                     totalPages={totalPages}
