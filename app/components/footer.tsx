@@ -18,13 +18,29 @@ export function Footer({ variant = "minimal" }: FooterProps) {
           >
             Built with
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-8">
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            {/* Google Gemini Logo */}
+            <a
+              href="https://gemini.google.com/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Google Gemini"
+              className="inline-flex items-center justify-center"
+            >
+              <Image
+                src="/gemini-logo-white.svg"
+                alt="Google Gemini"
+                width={120}
+                height={24}
+                style={{ height: "24px", width: "auto" }}
+              />
+            </a>
             {/* Mux Logo */}
             <a
               href="https://www.mux.com/"
               target="_blank"
               rel="noreferrer"
-              aria-label="@mux/ai on GitHub"
+              aria-label="Mux"
               className="inline-flex items-center justify-center"
             >
               <Image

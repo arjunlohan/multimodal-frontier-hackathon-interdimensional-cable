@@ -30,18 +30,49 @@ npm run dev
 
 ## Environment Variables
 
-Create a `.env.local` file:
+Create a `.env.local` file. See `app/lib/env.ts` for validation details.
+
+### Required
 
 ```bash
-# Database (PostgreSQL)
+# Database (PostgreSQL with pgvector)
 DATABASE_URL=
 
-# Google AI (Gemini + Veo)
-GOOGLE_GENERATIVE_AI_API_KEY=
-
-# Mux (video hosting)
+# Mux credentials
 MUX_TOKEN_ID=
 MUX_TOKEN_SECRET=
+
+# S3-compatible storage (for translation workflows)
+S3_ENDPOINT=
+S3_REGION=
+S3_BUCKET=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+```
+
+### Optional
+
+```bash
+# Google AI (Gemini for script generation, research, TTS)
+GOOGLE_GENERATIVE_AI_API_KEY=
+
+# Gemini API key (for Veo video generation and LLM)
+GEMINI_API_KEY=
+
+# Additional AI providers
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+
+# ElevenLabs (for audio translation/dubbing)
+ELEVENLABS_API_KEY=
+
+# Mux signing keys (for signed/secure playback URLs)
+MUX_SIGNING_KEY=
+MUX_PRIVATE_KEY=
+
+# Remotion Lambda (for rendering social clips)
+REMOTION_AWS_ACCESS_KEY_ID=
+REMOTION_AWS_SECRET_ACCESS_KEY=
 ```
 
 ## Key Routes
