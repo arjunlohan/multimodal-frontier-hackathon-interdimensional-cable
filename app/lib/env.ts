@@ -31,6 +31,9 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: optionalString("Anthropic API key for Claude-backed workflows."),
   GOOGLE_GENERATIVE_AI_API_KEY: optionalString("Google Generative AI API key for Gemini-backed workflows."),
 
+  // Gemini API key (for VEO video generation and LLM)
+  GEMINI_API_KEY: optionalString("Gemini API key for VEO video generation and research/scripting."),
+
   // ElevenLabs API key (optional; required only if you want to use translateAudio)
   ELEVENLABS_API_KEY: optionalString("ElevenLabs API key for translateAudio workflow."),
 
@@ -52,6 +55,11 @@ const EnvSchema = z.object({
 export type Env = z.infer<typeof EnvSchema>;
 
 function parseEnv(): Env {
+  // Skip validation during Next.js build phase to allow building without runtime env vars
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return process.env as unknown as Env;
+  }
+
   const parsedEnv = EnvSchema.safeParse(process.env);
 
   if (!parsedEnv.success) {

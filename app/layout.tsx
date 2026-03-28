@@ -17,8 +17,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "@mux/ai workflows demo | @mux/ai + Vercel Workflows",
-  description: "A reference architecture demonstrating how to integrate @mux/ai with Vercel Workflows to build video intelligence pipelines in Next.js.",
+  title: "Interdimensional Cable | AI-Powered Talk Shows",
+  description: "Generate personalized AI talk show segments. Pick a show style, give it a topic, and watch your custom episode come to life.",
 };
 
 export default function RootLayout({

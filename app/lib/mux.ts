@@ -230,6 +230,78 @@ export async function getMuxInstantClipUrl(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Asset Upload Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Creates a new Mux asset from a video file URL.
+ * The URL must be publicly accessible for Mux to ingest.
+ *
+ * @param videoUrl - Public URL to the video file
+ * @returns The created Mux asset
+ */
+export async function createAssetFromUrl(videoUrl: string): Promise<MuxAsset> {
+  const asset = await mux.video.assets.create({
+    inputs: [{ url: videoUrl }],
+    playback_policy: ["public"],
+  });
+  return asset;
+}
+
+/**
+ * Creates a new Mux asset from a direct upload.
+ * Returns the upload URL and asset ID.
+ */
+export async function createDirectUpload(): Promise<{
+  uploadUrl: string;
+  assetId: string;
+}> {
+  const upload = await mux.video.uploads.create({
+    cors_origin: "*",
+    new_asset_settings: {
+      playback_policy: ["public"],
+    },
+  });
+  return {
+    uploadUrl: upload.url,
+    assetId: upload.asset_id ?? "",
+  };
+}
+
+/**
+ * Waits for a Mux asset to reach "ready" status.
+ * Uses exponential backoff polling.
+ *
+ * @param assetId - The Mux asset ID to monitor
+ * @param timeoutMs - Maximum wait time (default: 10 minutes)
+ * @returns The ready asset
+ */
+export async function waitForAssetReady(
+  assetId: string,
+  timeoutMs: number = 10 * 60 * 1000,
+): Promise<MuxAsset> {
+  const startedAt = Date.now();
+  let delayMs = 2000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const asset = await mux.video.assets.retrieve(assetId);
+
+    if (asset.status === "ready") {
+      return asset;
+    }
+
+    if (asset.status === "errored") {
+      throw new Error(`Mux asset ${assetId} errored during processing`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    delayMs = Math.min(Math.round(delayMs * 1.5), 15_000);
+  }
+
+  throw new Error(`Mux asset ${assetId} did not become ready within ${timeoutMs / 1000}s`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audio Track Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
