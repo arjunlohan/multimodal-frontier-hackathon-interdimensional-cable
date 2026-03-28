@@ -17,7 +17,7 @@ const DEFAULT_TEMPLATES: schema.NewShowTemplate[] = [
   {
     name: "Last Week Tonight with John Oliver",
     showType: "monologue",
-    referenceImageUrl: "/templates/john-oliver.jpg",
+    referenceImageUrl: "/templates/john-oliver.png",
     hosts: [
       {
         name: "John Oliver",
@@ -31,7 +31,7 @@ const DEFAULT_TEMPLATES: schema.NewShowTemplate[] = [
   {
     name: "Late Night with Seth Meyers",
     showType: "monologue",
-    referenceImageUrl: "/templates/seth-meyers.jpg",
+    referenceImageUrl: "/templates/seth-meyers.png",
     hosts: [
       {
         name: "Seth Meyers",
@@ -45,7 +45,7 @@ const DEFAULT_TEMPLATES: schema.NewShowTemplate[] = [
   {
     name: "SNL Weekend Update",
     showType: "conversation",
-    referenceImageUrl: "/templates/snl-weekend-update.jpg",
+    referenceImageUrl: "/templates/snl-weekend-update.png",
     hosts: [
       {
         name: "Colin Jost",

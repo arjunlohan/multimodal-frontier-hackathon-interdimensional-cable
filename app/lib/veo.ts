@@ -27,17 +27,52 @@ export interface VideoClipResult {
 }
 
 /**
+ * Loads a reference image from the public directory and returns
+ * it as a Veo 3.1 reference image config entry.
+ */
+function loadReferenceImage(imagePath: string): {
+  image: { imageBytes: string; mimeType: string };
+  referenceType: "ASSET";
+} | null {
+  const ext = path.extname(imagePath).toLowerCase();
+  const mimeType = ext === ".png" ? "image/png" : "image/jpeg";
+  const absPath = path.join(process.cwd(), "public", imagePath);
+
+  if (!fs.existsSync(absPath)) {
+    console.warn("[veo] Reference image not found:", absPath);
+    return null;
+  }
+
+  const imageBytes = fs.readFileSync(absPath).toString("base64");
+  console.log("[veo] Loaded reference image:", absPath, `(${(imageBytes.length * 0.75 / 1024).toFixed(0)} KB)`);
+  return { image: { imageBytes, mimeType }, referenceType: "ASSET" };
+}
+
+/**
  * Generates a video clip using Google's Veo 3.1 model.
  * Produces 8-second 1080p clips with natively generated audio.
+ * Optionally uses a reference image to guide the visual style.
  */
 export async function generateVideoClip(
   prompt: string,
-  _referenceImageUrl?: string,
+  referenceImagePath?: string,
 ): Promise<VideoClipResult> {
   console.log("[veo] generateVideoClip called, prompt length:", prompt.length);
   const client = getClient();
 
-  // Generate video using Veo 3.1 at 1080p (requires 8s duration)
+  const referenceImages = referenceImagePath
+    ? [loadReferenceImage(referenceImagePath)].filter(Boolean) as Array<{
+        image: { imageBytes: string; mimeType: string };
+        referenceType: "ASSET";
+      }>
+    : [];
+
+  if (referenceImages.length > 0) {
+    console.log("[veo] Reference image included in request:", referenceImagePath, "| mimeType:", referenceImages[0].image.mimeType, "| base64 length:", referenceImages[0].image.imageBytes.length);
+  } else {
+    console.log("[veo] No reference image provided, generating without style guidance");
+  }
+
   console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...");
   let operation = await client.models.generateVideos({
     model: "veo-3.1-generate-preview",
@@ -47,8 +82,10 @@ export async function generateVideoClip(
       numberOfVideos: 1,
       durationSeconds: 8,
       resolution: "1080p",
+      ...(referenceImages.length > 0 ? { referenceImages } : {}),
     },
   });
+  console.log("[veo] Veo 3.1 request sent successfully", referenceImages.length > 0 ? "(with reference image)" : "(no reference image)");
 
   // Poll for completion
   let pollCount = 0;
@@ -95,12 +132,15 @@ export async function generateVideoClip(
 
 /**
  * Generate text using Gemini LLM for research and scripting.
+ * When `useGoogleSearch` is true, enables Grounding with Google Search
+ * so the model can fetch real-time information to improve accuracy.
  */
 export async function generateText(
   prompt: string,
   systemInstruction?: string,
+  useGoogleSearch = false,
 ): Promise<string> {
-  console.log("[gemini] generateText called, prompt length:", prompt.length);
+  console.log("[gemini] generateText called, prompt length:", prompt.length, "| googleSearch:", useGoogleSearch);
   const client = getClient();
 
   const response = await client.models.generateContent({
@@ -111,6 +151,7 @@ export async function generateText(
       temperature: 0.9,
       maxOutputTokens: 8192,
       thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+      ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),
     },
   });
 
@@ -119,7 +160,16 @@ export async function generateText(
     console.error("[gemini] Empty response, full response:", JSON.stringify(response));
     throw new Error("Gemini returned empty response");
   }
-  console.log("[gemini] Response received,", text.length, "chars");
 
+  if (useGoogleSearch) {
+    const metadata = response.candidates?.[0]?.groundingMetadata;
+    const searchCount = metadata?.webSearchQueries?.length ?? 0;
+    console.log("[gemini] Google Search grounding used:", searchCount, "search queries");
+    if (metadata?.webSearchQueries) {
+      metadata.webSearchQueries.forEach((q: string, i: number) => console.log(`  [${i + 1}] "${q}"`));
+    }
+  }
+
+  console.log("[gemini] Response received,", text.length, "chars");
   return text;
 }

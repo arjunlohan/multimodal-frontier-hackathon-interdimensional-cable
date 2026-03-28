@@ -175,7 +175,7 @@ Familiarity level: ${show.familiarity} (${
 Provide a comprehensive research brief in 500-1000 words.`;
 
   console.log("[workflow:research] Calling Gemini for research...");
-  const researchContext = await generateText(researchPrompt, "You are a research assistant for a comedy talk show. Gather comprehensive information that can be turned into entertaining commentary.");
+  const researchContext = await generateText(researchPrompt, "You are a research assistant for a comedy talk show. Gather comprehensive information that can be turned into entertaining commentary.", true);
   console.log("[workflow:research] Gemini returned", researchContext.length, "chars");
 
   await db.update(schema.generatedShows)
@@ -492,7 +492,7 @@ async function uploadStep(
 
   const { eq } = await import("drizzle-orm");
   const { db, schema } = await getDb();
-  const { createDirectUpload, waitForAssetReady } = await import("@/app/lib/mux");
+  const { createDirectUpload, waitForAssetReady, waitForUploadAssetId } = await import("@/app/lib/mux");
 
   await db.update(schema.generatedShows)
     .set({ status: "uploading" })
@@ -519,8 +519,8 @@ async function uploadStep(
 
   // Upload to Mux via direct upload
   console.log("[workflow:upload] Creating Mux direct upload...");
-  const { uploadUrl, assetId } = await createDirectUpload();
-  console.log("[workflow:upload] Upload URL created, assetId:", assetId);
+  const { uploadId, uploadUrl } = await createDirectUpload();
+  console.log("[workflow:upload] Upload URL created, uploadId:", uploadId);
 
   // Upload the file
   const fs = await import("node:fs");
@@ -537,10 +537,13 @@ async function uploadStep(
     console.error("[workflow:upload] Mux upload failed:", uploadResponse.status, body);
     throw new Error(`Failed to upload to Mux: ${uploadResponse.status}`);
   }
-  console.log("[workflow:upload] File uploaded to Mux, waiting for asset ready...");
+  console.log("[workflow:upload] File uploaded to Mux, waiting for asset ID...");
+
+  // Poll the upload until Mux assigns an asset ID
+  const assetId = await waitForUploadAssetId(uploadId);
+  console.log("[workflow:upload] Asset ID resolved:", assetId, "— waiting for asset ready...");
 
   // Wait for the asset to be ready
-  await sleepMs(3000);
   const readyAsset = await waitForAssetReady(assetId, 5 * 60 * 1000);
   console.log("[workflow:upload] Asset ready, playback IDs:", readyAsset.playback_ids?.length);
 

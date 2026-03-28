@@ -253,6 +253,7 @@ export async function createAssetFromUrl(videoUrl: string): Promise<MuxAsset> {
  * Returns the upload URL and asset ID.
  */
 export async function createDirectUpload(): Promise<{
+  uploadId: string;
   uploadUrl: string;
   assetId: string;
 }> {
@@ -263,9 +264,32 @@ export async function createDirectUpload(): Promise<{
     },
   });
   return {
+    uploadId: upload.id,
     uploadUrl: upload.url,
     assetId: upload.asset_id ?? "",
   };
+}
+
+/**
+ * Polls a Mux direct upload until the asset_id is available.
+ */
+export async function waitForUploadAssetId(
+  uploadId: string,
+  timeoutMs: number = 2 * 60 * 1000,
+): Promise<string> {
+  const startedAt = Date.now();
+  let delayMs = 1000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const upload = await mux.video.uploads.retrieve(uploadId);
+    if (upload.asset_id) {
+      return upload.asset_id;
+    }
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    delayMs = Math.min(Math.round(delayMs * 1.5), 5000);
+  }
+
+  throw new Error(`Mux upload ${uploadId} did not produce an asset_id within ${timeoutMs / 1000}s`);
 }
 
 /**

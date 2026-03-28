@@ -126,23 +126,32 @@ export default function Home() {
                 {
                   name: "John Oliver",
                   type: "MONOLOGUE",
+                  image: "/templates/john-oliver.png",
                   description: "Deep-dive investigative humor with elaborate analogies that escalate to ridiculous extremes.",
                 },
                 {
                   name: "Seth Meyers",
                   type: "MONOLOGUE",
+                  image: "/templates/seth-meyers.png",
                   description: "Sharp, witty political commentary with surgical precision and dry humor.",
                 },
                 {
                   name: "Weekend Update",
                   type: "CONVERSATION",
+                  image: "/templates/snl-weekend-update.png",
                   description: "Colin Jost and Michael Che trade headlines with contrasting styles — polished vs. loose cannon.",
                 },
               ].map(show => (
                 <div key={show.name} className="card-brutal overflow-hidden">
-                  <div className="flex h-32 items-center justify-center bg-background-dark">
+                  <div className="relative h-32 overflow-hidden">
+                    <img
+                      src={show.image}
+                      alt={show.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     <span
-                      className="text-sm font-bold uppercase tracking-[0.2em] text-foreground-light"
+                      className="absolute bottom-3 left-4 text-sm font-bold uppercase tracking-[0.2em] text-white"
                       style={{ fontFamily: "var(--font-space-mono)" }}
                     >
                       {show.name}

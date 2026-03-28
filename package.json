@@ -18,7 +18,8 @@
     "remotion:deploy": "node remotion/deploy.mjs",
     "visualize:workflows": "npx workflow web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:veo": "tsx scripts/test-veo.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.86",
@@ -40,6 +41,7 @@
     "pg": "^8.16.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "react-markdown": "^10.1.0",
     "remotion": "4.0.390",
     "workflow": "^4.0.1-beta.29",
     "zod": "^4.1.13"
