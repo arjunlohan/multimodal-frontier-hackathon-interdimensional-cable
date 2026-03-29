@@ -52,49 +52,17 @@ export interface VideoClipResult {
 }
 
 /**
- * Loads a reference image from the public directory and returns
- * it as a Veo 3.1 reference image config entry.
- */
-function loadReferenceImage(imagePath: string): {
-  image: { imageBytes: string; mimeType: string };
-  referenceType: "ASSET";
-} | null {
-  const ext = path.extname(imagePath).toLowerCase();
-  const mimeType = ext === ".png" ? "image/png" : "image/jpeg";
-  const absPath = path.join(process.cwd(), "public", imagePath);
-
-  if (!fs.existsSync(absPath)) {
-    console.warn("[veo] Reference image not found:", absPath);
-    return null;
-  }
-
-  const imageBytes = fs.readFileSync(absPath).toString("base64");
-  console.log("[veo] Loaded reference image:", absPath, `(${(imageBytes.length * 0.75 / 1024).toFixed(0)} KB)`);
-  return { image: { imageBytes, mimeType }, referenceType: "ASSET" };
-}
-
-type ReferenceImage = {
-  image: { imageBytes: string; mimeType: string };
-  referenceType: "ASSET";
-};
-
-/**
  * Core video generation call — sends the request, polls, downloads.
- * Returns null with a reason string if the content was filtered,
- * so callers can decide whether to retry.
  * Retries on 429 rate-limit errors with exponential backoff.
  */
 async function callVeo(
   client: GoogleGenAI,
   prompt: string,
-  referenceImages: ReferenceImage[],
   maxRetries = 3,
-): Promise<{ result: VideoClipResult } | { filtered: string }> {
-  const label = referenceImages.length > 0 ? "(with reference image)" : "(no reference image)";
-
+): Promise<VideoClipResult> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await callVeoOnce(client, prompt, referenceImages, label);
+      return await callVeoOnce(client, prompt);
     } catch (err) {
       const is429 = err instanceof Error
         && (err.message.includes("429") || err.message.includes("RESOURCE_EXHAUSTED"));
@@ -112,11 +80,9 @@ async function callVeo(
 async function callVeoOnce(
   client: GoogleGenAI,
   prompt: string,
-  referenceImages: ReferenceImage[],
-  label: string,
-): Promise<{ result: VideoClipResult } | { filtered: string }> {
+): Promise<VideoClipResult> {
   await waitForVeoSlot();
-  console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...", label);
+  console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...");
 
   let operation = await client.models.generateVideos({
     model: "veo-3.1-generate-preview",
@@ -126,7 +92,6 @@ async function callVeoOnce(
       numberOfVideos: 1,
       durationSeconds: 8,
       resolution: "1080p",
-      ...(referenceImages.length > 0 ? { referenceImages } : {}),
     },
   });
   console.log("[veo] Veo 3.1 request sent successfully", label);
@@ -147,17 +112,7 @@ async function callVeoOnce(
 
   const generatedVideos = operation.response?.generatedVideos;
   if (!generatedVideos || generatedVideos.length === 0) {
-    const responseStr = JSON.stringify(operation.response ?? {});
-    const isCelebrityFilter = responseStr.includes("celebrity")
-      || responseStr.includes("likenesses")
-      || (operation.response as Record<string, unknown>)?.raiMediaFilteredCount;
-    if (isCelebrityFilter) {
-      const reasons = (operation.response as Record<string, unknown>)?.raiMediaFilteredReasons as string[] | undefined;
-      const reason = reasons?.[0] ?? "Reference image blocked by content filter";
-      console.warn("[veo] Content filter triggered:", reason);
-      return { filtered: reason };
-    }
-    console.error("[veo] No videos in response:", responseStr);
+    console.error("[veo] No videos in response:", JSON.stringify(operation.response ?? {}));
     throw new Error("Video generation completed but no videos returned");
   }
 
@@ -171,7 +126,7 @@ async function callVeoOnce(
   await client.files.download({ file: video.video!, downloadPath: localPath });
   console.log("[veo] Download complete, size:", fs.statSync(localPath).size, "bytes");
 
-  return { result: { videoUrl: video.video?.uri ?? localPath, localPath } };
+  return { videoUrl: video.video?.uri ?? localPath, localPath };
 }
 
 /**
@@ -183,11 +138,7 @@ export async function generateVideoClip(
 ): Promise<VideoClipResult> {
   console.log("[veo] generateVideoClip called, prompt length:", prompt.length);
   const client = getClient();
-
-  const attempt = await callVeo(client, prompt, []);
-  if ("result" in attempt) return attempt.result;
-
-  throw new Error(`Video generation filtered: ${attempt.filtered}`);
+  return callVeo(client, prompt);
 }
 
 /**
