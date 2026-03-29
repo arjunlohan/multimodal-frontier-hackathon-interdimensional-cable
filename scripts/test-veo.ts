@@ -119,7 +119,7 @@ async function testVeoWithReferenceImage(): Promise<boolean> {
   console.log("\n── Step 4/5: Veo + Reference Image ────────────────────");
   const fs = await import("node:fs");
   const path = await import("node:path");
-  const { GoogleGenAI } = await import("@google/genai");
+  const { GoogleGenAI, VideoGenerationReferenceType } = await import("@google/genai");
   const client = new GoogleGenAI({ apiKey: getApiKey()! });
 
   const imagePath = path.join(process.cwd(), "public", "templates", "john-oliver.png");
@@ -144,7 +144,7 @@ async function testVeoWithReferenceImage(): Promise<boolean> {
         durationSeconds: 8,
         referenceImages: [{
           image: { imageBytes, mimeType: "image/png" },
-          referenceType: "ASSET",
+          referenceType: VideoGenerationReferenceType.ASSET,
         }],
       },
     });
