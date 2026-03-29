@@ -94,7 +94,7 @@ async function callVeoOnce(
       resolution: "1080p",
     },
   });
-  console.log("[veo] Veo 3.1 request sent successfully", label);
+  console.log("[veo] Veo 3.1 request sent successfully");
 
   let pollCount = 0;
   while (!operation.done) {
