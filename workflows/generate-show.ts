@@ -374,10 +374,7 @@ async function generateClipsStep(
       .where(eq(schema.videoClips.id, clip.id));
 
     try {
-      const result = await generateVideoClip(
-        clip.prompt,
-        template.referenceImageUrl ?? undefined,
-      );
+      const result = await generateVideoClip(clip.prompt);
 
       console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
       await db.update(schema.videoClips)

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const wav = await generateTts(body.transcript, body.hosts, body.targetLang);
 
-    return new Response(wav, {
+    return new Response(new Uint8Array(wav), {
       status: 200,
       headers: {
         "Content-Type": "audio/wav",

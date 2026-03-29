@@ -18,6 +18,31 @@ function getClient(): GoogleGenAI {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Rate Limiter — Veo 3 is capped at 2 RPM (paid tier 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VEO_RPM = 2;
+const VEO_WINDOW_MS = 60_000;
+const veoCallTimestamps: number[] = [];
+
+async function waitForVeoSlot(): Promise<void> {
+  const now = Date.now();
+  // Purge timestamps older than the 60s window
+  while (veoCallTimestamps.length > 0 && now - veoCallTimestamps[0] > VEO_WINDOW_MS) {
+    veoCallTimestamps.shift();
+  }
+
+  if (veoCallTimestamps.length >= VEO_RPM) {
+    const oldestInWindow = veoCallTimestamps[0];
+    const waitMs = oldestInWindow + VEO_WINDOW_MS - now + 1_000; // +1s safety margin
+    console.log(`[veo] Rate limit: ${veoCallTimestamps.length}/${VEO_RPM} RPM used, waiting ${(waitMs / 1000).toFixed(0)}s...`);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+
+  veoCallTimestamps.push(Date.now());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Video Generation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -75,7 +100,7 @@ async function callVeo(
         && (err.message.includes("429") || err.message.includes("RESOURCE_EXHAUSTED"));
       if (!is429 || attempt === maxRetries) throw err;
 
-      const backoffMs = Math.min(30_000, 10_000 * 2 ** attempt);
+      const backoffMs = 60_000 * (attempt + 1);
       console.log(`[veo] Rate limited (429), retrying in ${backoffMs / 1000}s (attempt ${attempt + 1}/${maxRetries})...`);
       await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
@@ -90,6 +115,7 @@ async function callVeoOnce(
   referenceImages: ReferenceImage[],
   label: string,
 ): Promise<{ result: VideoClipResult } | { filtered: string }> {
+  await waitForVeoSlot();
   console.log("[veo] Calling Veo 3.1 (veo-3.1-generate-preview)...", label);
 
   let operation = await client.models.generateVideos({
@@ -151,30 +177,12 @@ async function callVeoOnce(
 /**
  * Generates a video clip using Google's Veo 3.1 model.
  * Produces 8-second 1080p clips with natively generated audio.
- * If a reference image is provided but blocked by the celebrity/content filter,
- * automatically retries without the reference image.
  */
 export async function generateVideoClip(
   prompt: string,
-  referenceImagePath?: string,
 ): Promise<VideoClipResult> {
   console.log("[veo] generateVideoClip called, prompt length:", prompt.length);
   const client = getClient();
-
-  const referenceImages = referenceImagePath
-    ? [loadReferenceImage(referenceImagePath)].filter(Boolean) as ReferenceImage[]
-    : [];
-
-  if (referenceImages.length > 0) {
-    console.log("[veo] Reference image included in request:", referenceImagePath, "| mimeType:", referenceImages[0].image.mimeType, "| base64 length:", referenceImages[0].image.imageBytes.length);
-
-    const attempt = await callVeo(client, prompt, referenceImages);
-    if ("result" in attempt) return attempt.result;
-
-    console.log("[veo] Retrying WITHOUT reference image due to filter:", attempt.filtered);
-  } else {
-    console.log("[veo] No reference image provided, generating without style guidance");
-  }
 
   const attempt = await callVeo(client, prompt, []);
   if ("result" in attempt) return attempt.result;
