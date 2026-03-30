@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { asc, count, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import Link from "next/link";
