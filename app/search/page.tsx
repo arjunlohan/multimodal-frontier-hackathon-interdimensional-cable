@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
 import { recordMetric } from "@/app/lib/metrics";
