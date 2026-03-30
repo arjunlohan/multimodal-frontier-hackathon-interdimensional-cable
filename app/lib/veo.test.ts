@@ -31,15 +31,19 @@ vi.mock("@google/genai", () => {
   return {
     GoogleGenAI: MockGoogleGenAI,
     ThinkingLevel: { HIGH: "HIGH", MEDIUM: "MEDIUM", LOW: "LOW", MINIMAL: "MINIMAL" },
+    VideoGenerationReferenceType: { ASSET: "ASSET", STYLE: "STYLE" },
   };
 });
 
 describe("veo", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockGenerateContent.mockReset();
     mockGenerateVideos.mockReset();
     mockGetVideosOperation.mockReset();
     mockDownload.mockReset();
+    // Reset rate limiter to prevent cross-test timeout from accumulated timestamps
+    const { _resetRateLimiter } = await import("./veo");
+    _resetRateLimiter();
   });
 
   describe("generateText", () => {
@@ -166,6 +170,77 @@ describe("veo", () => {
 
       const { generateVideoClip } = await import("./veo");
       await expect(generateVideoClip("test")).rejects.toThrow("no videos returned");
+    });
+
+    it("includes referenceImages and personGeneration when slug provided and file exists", async () => {
+      // Mock fs.existsSync to return true for the reference image path
+      const existsSyncSpy = vi.spyOn(fs, "existsSync").mockReturnValueOnce(true);
+      const readFileSyncSpy = vi.spyOn(fs, "readFileSync").mockReturnValueOnce(Buffer.from("fake-image-data"));
+
+      mockGenerateVideos.mockResolvedValueOnce({
+        done: true,
+        response: {
+          generatedVideos: [
+            { video: { uri: "gs://bucket/video.mp4" } },
+          ],
+        },
+      });
+      mockDownload.mockImplementationOnce(({ downloadPath }: { downloadPath: string }) => {
+        fs.mkdirSync(require("node:path").dirname(downloadPath), { recursive: true });
+        // Restore readFileSync before writing
+        readFileSyncSpy.mockRestore();
+        fs.writeFileSync(downloadPath, "fake-video-data");
+        return Promise.resolve();
+      });
+
+      const { generateVideoClip } = await import("./veo");
+      await generateVideoClip("A talk show host", "john-oliver");
+
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            referenceImages: expect.arrayContaining([
+              expect.objectContaining({
+                referenceType: "ASSET",
+              }),
+            ]),
+            personGeneration: "allow_adult",
+          }),
+        }),
+      );
+
+      existsSyncSpy.mockRestore();
+    });
+
+    it("proceeds without reference image when file not found", async () => {
+      vi.spyOn(fs, "existsSync").mockReturnValueOnce(false);
+
+      mockGenerateVideos.mockResolvedValueOnce({
+        done: true,
+        response: {
+          generatedVideos: [
+            { video: { uri: "gs://bucket/video.mp4" } },
+          ],
+        },
+      });
+      mockDownload.mockImplementationOnce(({ downloadPath }: { downloadPath: string }) => {
+        fs.mkdirSync(require("node:path").dirname(downloadPath), { recursive: true });
+        fs.writeFileSync(downloadPath, "fake-video-data");
+        return Promise.resolve();
+      });
+
+      const { generateVideoClip } = await import("./veo");
+      const result = await generateVideoClip("A talk show host", "nonexistent-slug");
+
+      // Should succeed without reference images in config
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.not.objectContaining({
+            referenceImages: expect.anything(),
+          }),
+        }),
+      );
+      expect(result.videoUrl).toBe("gs://bucket/video.mp4");
     });
   });
 });

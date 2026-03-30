@@ -40,6 +40,7 @@ interface CreateShowInput {
   topicType: string;
   durationSeconds: number;
   familiarity: string;
+  useFrameChaining?: boolean;
 }
 
 interface CreateShowResult {
@@ -81,6 +82,7 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
         topicType: formData.topicType,
         durationSeconds: formData.durationSeconds,
         familiarity: formData.familiarity,
+        useFrameChaining: formData.useFrameChaining ?? false,
         status: "pending",
       })
       .returning({ id: schema.generatedShows.id });

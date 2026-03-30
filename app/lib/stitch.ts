@@ -87,6 +87,40 @@ function generateOutputPath(): string {
 }
 
 /**
+ * Extracts a single frame from a video at the given timestamp using FFmpeg.
+ *
+ * @param videoPath - Path to the source video
+ * @param timeSeconds - Timestamp in seconds to extract the frame from
+ * @returns Path to the extracted PNG frame
+ */
+export async function extractFrame(
+  videoPath: string,
+  timeSeconds: number,
+): Promise<string> {
+  const tmpDir = path.join(os.tmpdir(), "interdimensional-cable");
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const outputPath = path.join(tmpDir, `frame-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`);
+
+  console.log("[stitch] Extracting frame at", timeSeconds, "s from:", videoPath);
+  await execFileAsync("ffmpeg", [
+    "-y",
+    "-ss", String(timeSeconds),
+    "-i", videoPath,
+    "-frames:v", "1",
+    "-f", "image2",
+    outputPath,
+  ], { timeout: 30_000 });
+
+  if (!fs.existsSync(outputPath)) {
+    throw new Error(`Frame extraction failed — output not found: ${outputPath}`);
+  }
+
+  console.log("[stitch] Frame extracted:", outputPath, `(${(fs.statSync(outputPath).size / 1024).toFixed(0)} KB)`);
+  return outputPath;
+}
+
+/**
  * Cleans up temporary video files.
  */
 export function cleanupTempFiles(paths: string[]): void {

@@ -32,6 +32,7 @@ export function CreateForm({ templates }: CreateFormProps) {
   const [topicType, setTopicType] = useState("freetext");
   const [durationSeconds, setDurationSeconds] = useState(16);
   const [familiarity, setFamiliarity] = useState("familiar");
+  const [useFrameChaining, setUseFrameChaining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedTemplate = templates.find(t => t.id === templateId);
@@ -74,6 +75,7 @@ export function CreateForm({ templates }: CreateFormProps) {
         topicType,
         durationSeconds,
         familiarity,
+        useFrameChaining,
       });
 
       if (result.error) {
@@ -189,6 +191,42 @@ export function CreateForm({ templates }: CreateFormProps) {
                 <FamiliaritySelector value={familiarity} onChange={setFamiliarity} />
               </div>
             </div>
+
+            {/* Frame Chaining Toggle */}
+            <div className="mt-8">
+              <label
+                className="mb-3 block text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
+                style={{ fontFamily: "var(--font-space-mono)" }}
+              >
+                Visual Consistency
+              </label>
+              <button
+                type="button"
+                className={`tone-btn w-full text-left ${useFrameChaining ? "active" : ""}`}
+                style={{ fontFamily: "var(--font-space-mono)" }}
+                onClick={() => setUseFrameChaining(!useFrameChaining)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold">Frame Chaining</div>
+                    <div className="mt-1 text-xs opacity-70">
+                      Generates an anchor clip first, then uses its start/end frames to keep all segments visually consistent
+                    </div>
+                  </div>
+                  <div
+                    className={`ml-4 flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-border transition-colors ${
+                      useFrameChaining ? "bg-foreground" : "bg-surface"
+                    }`}
+                  >
+                    <div
+                      className={`h-4 w-4 rounded-full border border-border transition-transform ${
+                        useFrameChaining ? "translate-x-5 bg-surface" : "translate-x-0.5 bg-foreground-muted"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         )}
 
@@ -265,6 +303,21 @@ export function CreateForm({ templates }: CreateFormProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Frame Chaining indicator */}
+              {useFrameChaining && (
+                <div className="border-3 border-border p-4">
+                  <div
+                    className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
+                    style={{ fontFamily: "var(--font-space-mono)" }}
+                  >
+                    Visual Consistency
+                  </div>
+                  <div className="font-bold" style={{ fontFamily: "var(--font-syne)" }}>
+                    Frame Chaining ON
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Error message */}

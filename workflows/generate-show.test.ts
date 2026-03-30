@@ -24,6 +24,21 @@ interface Host {
   position?: string;
 }
 
+function sanitizeNotesForVeo(notes: string): string {
+  return notes
+    .replace(/\bHBO\b/gi, "premium cable")
+    .replace(/\bNBC\b/gi, "broadcast network")
+    .replace(/\bSNL\b/gi, "sketch comedy show")
+    .replace(/\bSaturday Night Live\b/gi, "sketch comedy show")
+    .replace(/\bLast Week Tonight\b/gi, "weekly investigative comedy show")
+    .replace(/\bLate Night\b/gi, "late-night show")
+    .replace(/\bWeekend Update\b/gi, "news desk comedy segment")
+    .replace(/\bColin Jost\b/gi, "Colin")
+    .replace(/\bMichael Che\b/gi, "Michael")
+    .replace(/\bJohn Oliver\b/gi, "John")
+    .replace(/\bSeth Meyers\b/gi, "Seth");
+}
+
 function buildVeoPrompt(
   segment: TranscriptSegment,
   hosts: Host[],
@@ -31,22 +46,23 @@ function buildVeoPrompt(
   notes: string,
 ): string {
   const host = hosts.find(h => h.name === segment.speaker) ?? hosts[0];
+  const sanitizedNotes = sanitizeNotesForVeo(notes);
 
   let prompt = "A professional late-night talk show segment. ";
 
   if (showType === "conversation") {
-    prompt += "Two hosts sit behind a news desk. ";
+    prompt += "Two hosts sit behind a news desk with a world map graphic behind them. ";
     if (host.position === "left") {
       prompt += "The person on the LEFT is speaking and gesturing. ";
     } else if (host.position === "right") {
       prompt += "The person on the RIGHT is speaking and gesturing. ";
     }
   } else {
-    prompt += "A single host behind a desk delivering a monologue. ";
+    prompt += "A single host behind a desk delivering a monologue, with a colorful graphic behind them. ";
   }
 
   prompt += `The host is saying: "${segment.text}" `;
-  prompt += `Style: ${notes} `;
+  prompt += `Style: ${sanitizedNotes} `;
   prompt += "The host should be animated, expressive, and natural. Studio lighting, professional TV production quality.";
 
   return prompt;
@@ -68,7 +84,8 @@ describe("buildVeoPrompt", () => {
     const result = buildVeoPrompt(segment, hosts, "monologue", "HBO style");
     expect(result).toContain("single host behind a desk");
     expect(result).toContain("This is absolutely bonkers.");
-    expect(result).toContain("HBO style");
+    expect(result).toContain("premium cable style");
+    expect(result).not.toContain("HBO");
     expect(result).not.toContain("Two hosts");
   });
 
@@ -89,6 +106,8 @@ describe("buildVeoPrompt", () => {
     expect(result).toContain("Two hosts sit behind a news desk");
     expect(result).toContain("LEFT is speaking");
     expect(result).toContain("Breaking news tonight.");
+    expect(result).toContain("sketch comedy show style");
+    expect(result).not.toContain("SNL");
   });
 
   it("builds conversation prompt with right speaker", () => {
@@ -120,6 +139,38 @@ describe("buildVeoPrompt", () => {
     expect(result).toContain("Hello world");
     // Should still build a valid prompt, using first host
     expect(result).toContain("single host behind a desk");
+  });
+});
+
+describe("sanitizeNotesForVeo", () => {
+  it("replaces network and show names", () => {
+    const input = "HBO late-night format. SNL news desk. NBC show. Last Week Tonight style. Weekend Update format.";
+    const result = sanitizeNotesForVeo(input);
+    expect(result).not.toContain("HBO");
+    expect(result).not.toContain("SNL");
+    expect(result).not.toContain("NBC");
+    expect(result).not.toContain("Last Week Tonight");
+    expect(result).not.toContain("Weekend Update");
+    expect(result).toContain("premium cable");
+    expect(result).toContain("sketch comedy show");
+    expect(result).toContain("broadcast network");
+    expect(result).toContain("weekly investigative comedy show");
+    expect(result).toContain("news desk comedy segment");
+  });
+
+  it("replaces full celebrity names with first names", () => {
+    const input = "Colin Jost and Michael Che style. John Oliver format. Seth Meyers delivery.";
+    const result = sanitizeNotesForVeo(input);
+    expect(result).not.toContain("Jost");
+    expect(result).not.toContain("Che");
+    expect(result).not.toContain("Oliver");
+    expect(result).not.toContain("Meyers");
+  });
+
+  it("is case insensitive", () => {
+    const result = sanitizeNotesForVeo("hbo format and snl style");
+    expect(result).not.toMatch(/hbo/i);
+    expect(result).not.toMatch(/snl/i);
   });
 });
 

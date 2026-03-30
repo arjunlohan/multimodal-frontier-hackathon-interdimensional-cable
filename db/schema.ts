@@ -114,6 +114,7 @@ export const generatedShows = pgTable("generated_shows", {
   error: text("error"),
   workflowRunId: text("workflow_run_id"),
   language: text("language").default("en"),
+  useFrameChaining: boolean("use_frame_chaining").default(false),
   userId: text("user_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

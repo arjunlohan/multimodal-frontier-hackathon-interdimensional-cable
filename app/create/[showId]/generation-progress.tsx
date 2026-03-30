@@ -20,6 +20,7 @@ const STATUS_TO_STEP: Record<string, GenerationStepId | null> = {
   pending: null,
   researching: "research",
   scripting: "script",
+  framing: "frame-chain",
   generating: "generate-clips",
   stitching: "stitch",
   uploading: "upload",
@@ -27,8 +28,15 @@ const STATUS_TO_STEP: Record<string, GenerationStepId | null> = {
   failed: null,
 };
 
-function getCompletedSteps(status: string): GenerationStepId[] {
-  const stepOrder: GenerationStepId[] = ["research", "script", "generate-clips", "stitch", "upload"];
+function getStepOrder(useFrameChaining: boolean): GenerationStepId[] {
+  if (useFrameChaining) {
+    return ["research", "script", "frame-chain", "generate-clips", "stitch", "upload"];
+  }
+  return ["research", "script", "generate-clips", "stitch", "upload"];
+}
+
+function getCompletedSteps(status: string, useFrameChaining: boolean): GenerationStepId[] {
+  const stepOrder = getStepOrder(useFrameChaining);
   const currentStep = STATUS_TO_STEP[status];
 
   if (status === "ready") return [...stepOrder];
@@ -63,8 +71,12 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
     return () => clearInterval(interval);
   }, [status, poll]);
 
-  const completedSteps = getCompletedSteps(status);
+  const useFrameChaining = show.useFrameChaining ?? false;
+  const completedSteps = getCompletedSteps(status, useFrameChaining);
   const currentStep = STATUS_TO_STEP[status];
+  const visibleSteps = GENERATION_STEPS.filter(
+    s => s.id !== "frame-chain" || useFrameChaining,
+  );
 
   return (
     <div className="space-y-8">
@@ -86,7 +98,7 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
           </div>
 
           <div className="space-y-3">
-            {GENERATION_STEPS.map((step) => {
+            {visibleSteps.map((step) => {
               const isCompleted = completedSteps.includes(step.id);
               const isCurrent = currentStep === step.id;
 
