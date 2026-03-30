@@ -53,17 +53,17 @@ function buildVeoPrompt(
   if (showType === "conversation") {
     prompt += "Two hosts sit behind a news desk with a world map graphic behind them. ";
     if (host.position === "left") {
-      prompt += "The person on the LEFT is speaking and gesturing. ";
+      prompt += "The person on the LEFT is speaking and gesturing animatedly. ";
     } else if (host.position === "right") {
-      prompt += "The person on the RIGHT is speaking and gesturing. ";
+      prompt += "The person on the RIGHT is speaking and gesturing animatedly. ";
     }
   } else {
     prompt += "A single host behind a desk delivering a monologue, with a colorful graphic behind them. ";
   }
 
-  prompt += `The host is saying: "${segment.text}" `;
+  prompt += "The host is speaking to the camera with expressive gestures. ";
   prompt += `Style: ${sanitizedNotes} `;
-  prompt += "The host should be animated, expressive, and natural. Studio lighting, professional TV production quality.";
+  prompt += "Studio lighting, professional TV production quality.";
 
   return prompt;
 }
@@ -83,10 +83,11 @@ describe("buildVeoPrompt", () => {
   it("builds monologue prompt", () => {
     const result = buildVeoPrompt(segment, hosts, "monologue", "HBO style");
     expect(result).toContain("single host behind a desk");
-    expect(result).toContain("This is absolutely bonkers.");
+    expect(result).toContain("speaking to the camera");
     expect(result).toContain("premium cable style");
     expect(result).not.toContain("HBO");
     expect(result).not.toContain("Two hosts");
+    expect(result).not.toContain("bonkers");
   });
 
   it("builds conversation prompt with left speaker", () => {
@@ -105,9 +106,9 @@ describe("buildVeoPrompt", () => {
     const result = buildVeoPrompt(seg, conversationHosts, "conversation", "SNL style");
     expect(result).toContain("Two hosts sit behind a news desk");
     expect(result).toContain("LEFT is speaking");
-    expect(result).toContain("Breaking news tonight.");
     expect(result).toContain("sketch comedy show style");
     expect(result).not.toContain("SNL");
+    expect(result).not.toContain("Breaking news");
   });
 
   it("builds conversation prompt with right speaker", () => {
@@ -136,7 +137,7 @@ describe("buildVeoPrompt", () => {
     };
 
     const result = buildVeoPrompt(seg, hosts, "monologue", "");
-    expect(result).toContain("Hello world");
+    expect(result).toContain("speaking to the camera");
     // Should still build a valid prompt, using first host
     expect(result).toContain("single host behind a desk");
   });
