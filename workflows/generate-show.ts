@@ -506,17 +506,17 @@ function buildVeoPrompt(
   if (showType === "conversation") {
     prompt += "Two hosts sit behind a news desk with a world map graphic behind them. ";
     if (host.position === "left") {
-      prompt += "The person on the LEFT is speaking and gesturing animatedly. ";
+      prompt += "The person on the LEFT is speaking and gesturing. ";
     } else if (host.position === "right") {
-      prompt += "The person on the RIGHT is speaking and gesturing animatedly. ";
+      prompt += "The person on the RIGHT is speaking and gesturing. ";
     }
   } else {
     prompt += "A single host behind a desk delivering a monologue, with a colorful graphic behind them. ";
   }
 
-  prompt += "The host is speaking to the camera with expressive gestures. ";
+  prompt += `The host is saying: "${segment.text}" `;
   prompt += `Style: ${sanitizedNotes} `;
-  prompt += "Studio lighting, professional TV production quality.";
+  prompt += "The host should be animated, expressive, and natural. Studio lighting, professional TV production quality.";
 
   return prompt;
 }
