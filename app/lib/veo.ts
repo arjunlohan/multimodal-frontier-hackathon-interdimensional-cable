@@ -101,6 +101,19 @@ export interface VideoClipResult {
 }
 
 /**
+ * Thrown when Veo's RAI content filter blocks video generation.
+ * The `reasons` array contains the filter messages from the API.
+ */
+export class VeoRAIFilterError extends Error {
+  reasons: string[];
+  constructor(reasons: string[]) {
+    super(`RAI filter: ${reasons.join("; ")}`);
+    this.name = "VeoRAIFilterError";
+    this.reasons = reasons;
+  }
+}
+
+/**
  * Core video generation call — sends the request, polls, downloads.
  * Retries on 429 rate-limit errors with exponential backoff.
  */
@@ -166,8 +179,15 @@ async function callVeoOnce(
     throw new Error(`Video generation failed: ${JSON.stringify(operation.error)}`);
   }
 
+  const raiFiltered = operation.response?.raiMediaFilteredCount ?? 0;
+  const raiReasons = operation.response?.raiMediaFilteredReasons ?? [];
   const generatedVideos = operation.response?.generatedVideos;
-  if (!generatedVideos || generatedVideos.length === 0) {
+
+  if (raiFiltered > 0 || !generatedVideos || generatedVideos.length === 0) {
+    if (raiFiltered > 0) {
+      console.warn("[veo] RAI filtered:", raiReasons.join("; "));
+      throw new VeoRAIFilterError(raiReasons);
+    }
     console.error("[veo] No videos in response:", JSON.stringify(operation.response ?? {}));
     throw new Error("Video generation completed but no videos returned");
   }
@@ -311,8 +331,15 @@ async function callVeoInterpolatedOnce(
     throw new Error(`Video generation failed: ${JSON.stringify(operation.error)}`);
   }
 
+  const raiFiltered2 = operation.response?.raiMediaFilteredCount ?? 0;
+  const raiReasons2 = operation.response?.raiMediaFilteredReasons ?? [];
   const generatedVideos = operation.response?.generatedVideos;
-  if (!generatedVideos || generatedVideos.length === 0) {
+
+  if (raiFiltered2 > 0 || !generatedVideos || generatedVideos.length === 0) {
+    if (raiFiltered2 > 0) {
+      console.warn("[veo] RAI filtered (interpolation):", raiReasons2.join("; "));
+      throw new VeoRAIFilterError(raiReasons2);
+    }
     console.error("[veo] No videos in response:", JSON.stringify(operation.response ?? {}));
     throw new Error("Video generation completed but no videos returned");
   }

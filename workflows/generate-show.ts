@@ -416,31 +416,69 @@ async function frameChainAndGenerateClipsStep(
       .set({ status: "generating" })
       .where(eq(schema.videoClips.id, clip.id));
 
-    try {
-      let result;
+    const segment = segments[clip.clipIndex];
+    let currentPrompt = clip.prompt;
+    let attempts = 0;
+    const maxRAIRetries = 2;
+    let succeeded = false;
 
-      if (show.useFrameChaining && firstFramePath && lastFramePath) {
-        // Interpolation mode: use anchor frames
-        result = await generateVideoClipInterpolated(clip.prompt, firstFramePath, lastFramePath);
-      } else {
-        // Standard mode: use reference images
-        result = await generateVideoClip(clip.prompt, refImageSlug ?? undefined);
+    while (attempts <= maxRAIRetries && !succeeded) {
+      try {
+        let result;
+
+        if (show.useFrameChaining && firstFramePath && lastFramePath) {
+          result = await generateVideoClipInterpolated(currentPrompt, firstFramePath, lastFramePath);
+        } else {
+          result = await generateVideoClip(currentPrompt, refImageSlug ?? undefined);
+        }
+
+        console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
+        await db.update(schema.videoClips)
+          .set({ status: "ready", videoUrl: result.localPath, prompt: currentPrompt })
+          .where(eq(schema.videoClips.id, clip.id));
+        successCount++;
+        succeeded = true;
+      } catch (err) {
+        const { VeoRAIFilterError } = await import("@/app/lib/veo");
+        if (err instanceof VeoRAIFilterError && attempts < maxRAIRetries && segment) {
+          attempts++;
+          console.warn("[workflow:generate-clips] Clip", clip.clipIndex,
+            "RAI filtered, revising text via Gemini (attempt", attempts, "/", maxRAIRetries, ")");
+
+          // Ask Gemini to revise the segment text to avoid the filter
+          const revisedText = await reviseSegmentText(segment.text, err.reasons);
+          console.log("[workflow:generate-clips] Revised text:", revisedText);
+
+          // Rebuild prompt with revised text
+          currentPrompt = buildVeoPrompt(
+            { ...segment, text: revisedText },
+            hosts, template.showType, template.notes ?? "",
+          );
+
+          // Update the transcript segment in the DB so the displayed
+          // transcript matches what Veo actually generates audio for
+          segments[clip.clipIndex] = { ...segment, text: revisedText };
+          await db.update(schema.generatedShows)
+            .set({ transcriptSegments: segments })
+            .where(eq(schema.generatedShows.id, showId));
+        } else {
+          const message = err instanceof Error ? err.message : "Clip generation failed";
+          console.error("[workflow:generate-clips] Clip", clip.clipIndex, "FAILED:", message);
+          await db.update(schema.videoClips)
+            .set({ status: "failed", error: message })
+            .where(eq(schema.videoClips.id, clip.id));
+          failCount++;
+          break;
+        }
       }
-
-      console.log("[workflow:generate-clips] Clip", clip.clipIndex, "done, path:", result.localPath);
-      await db.update(schema.videoClips)
-        .set({ status: "ready", videoUrl: result.localPath })
-        .where(eq(schema.videoClips.id, clip.id));
-      successCount++;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Clip generation failed";
-      console.error("[workflow:generate-clips] Clip", clip.clipIndex, "FAILED:", message);
-      await db.update(schema.videoClips)
-        .set({ status: "failed", error: message })
-        .where(eq(schema.videoClips.id, clip.id));
-      failCount++;
     }
   }
+
+  // Update the display transcript if any segments were revised
+  const updatedTranscript = segments.map(s => `[${s.speaker}]: ${s.text}`).join("\n\n");
+  await db.update(schema.generatedShows)
+    .set({ transcript: updatedTranscript, transcriptSegments: segments })
+    .where(eq(schema.generatedShows.id, showId));
 
   // Clean up frame chaining temp files
   const filesToClean: string[] = [];
@@ -460,6 +498,38 @@ async function frameChainAndGenerateClipsStep(
   }
 
   await writeToStream(progress, { type: "completed", step: "generate-clips" });
+}
+
+/**
+ * Uses Gemini to revise a segment's spoken text so it avoids
+ * triggering Veo's RAI content filters, while keeping the meaning
+ * and comedic intent as close to the original as possible.
+ */
+async function reviseSegmentText(
+  originalText: string,
+  filterReasons: string[],
+): Promise<string> {
+  const { generateText } = await import("@/app/lib/veo");
+
+  const prompt = `You are revising a line of dialogue for a talk show script. The line was rejected by a video generation AI because it contained words or references that triggered a content filter.
+
+ORIGINAL LINE:
+"${originalText}"
+
+FILTER REASON:
+${filterReasons.join("\n")}
+
+Rewrite this line to avoid triggering the filter. Rules:
+- Keep the same comedic intent, tone, and approximate length
+- Remove or rephrase any celebrity names, real people's names, real institution names, or specific references that could be flagged
+- Replace specific names with generic equivalents (e.g., "Harvard" → "an Ivy League school", "Colin" → "the anchor")
+- Do NOT add any explanation — output ONLY the revised line, nothing else
+- Keep it to roughly the same number of words (20-25 words)`;
+
+  const result = await generateText(prompt, "You are a comedy writer. Output only the revised line.");
+
+  // Strip any quotes the model might wrap around the output
+  return result.replace(/^["']|["']$/g, "").trim();
 }
 
 /**
