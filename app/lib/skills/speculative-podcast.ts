@@ -8,7 +8,7 @@ export const speculativePodcastSkill: ShowSkill = {
   showType: "conversation",
   description:
     "Lightly-prepped, wide-ranging conversational podcast diving into extreme human performance, primal biology, ancient history, and cosmic dread with earnest wonder.",
-  referenceImageUrl: "/templates/speculative-frontier.svg",
+  referenceImageUrl: "/templates/speculative-frontier.jpg",
   rhetoricalSpine: {
     acts: [
       {

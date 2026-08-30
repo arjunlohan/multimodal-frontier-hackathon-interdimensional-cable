@@ -9,7 +9,7 @@ export const satiricalNewsSkill: ShowSkill = {
   showType: "conversation",
   description:
     "High-density dual-anchor news desk trading rapid one-liners, deadpan straight-man setups, subversive streetwise reactions, and cross-desk banter.",
-  referenceImageUrl: "/templates/dual-anchor-desk.svg",
+  referenceImageUrl: "/templates/dual-anchor-desk.jpg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 5.0, max: 6.5 },

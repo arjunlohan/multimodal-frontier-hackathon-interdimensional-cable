@@ -8,7 +8,7 @@ export const apocalypticSatireSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Scorched-earth cynical comedy podcast dissecting economic rot, suburban absurdity, and corporate greed with manic high-voltage diatribes.",
-  referenceImageUrl: "/templates/apocalyptic-report.svg",
+  referenceImageUrl: "/templates/apocalyptic-report.jpg",
   rhetoricalSpine: {
     acts: [
       {

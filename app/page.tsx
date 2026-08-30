@@ -159,7 +159,7 @@ export default function Home() {
               {listShowSkills().map(skill => ({
                 name: skill.name,
                 type: skill.showType === "conversation" ? "CONVERSATION" : "MONOLOGUE",
-                image: skill.referenceImageUrl ?? "/templates/investigative-desk.svg",
+                image: skill.referenceImageUrl ?? "/templates/investigative-desk.jpg",
                 description: skill.description ?? "",
               })).map(show => (
                 <div key={show.name} className="card-brutal overflow-hidden">

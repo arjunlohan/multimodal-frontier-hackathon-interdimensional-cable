@@ -16,7 +16,7 @@ export const venturePanelSkill: ShowSkill = {
   showType: "conversation",
   description:
     "Four-handed venture-capital roundtable: macro doom, market takes, political sparring and a science segment, delivered by investors who are certain about everything and agree about nothing.",
-  referenceImageUrl: "/templates/venture-panel.svg",
+  referenceImageUrl: "/templates/venture-panel.jpg",
   rhetoricalSpine: {
     acts: [
       {

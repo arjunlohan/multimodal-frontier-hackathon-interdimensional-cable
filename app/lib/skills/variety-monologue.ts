@@ -9,7 +9,7 @@ export const varietyMonologueSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Exuberant, fast-paced variety monologue packed with pop-culture puns, infectious laughter, audience validation, and broad relatable absurdity.",
-  referenceImageUrl: "/templates/variety-monologue.svg",
+  referenceImageUrl: "/templates/variety-monologue.jpg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.2, max: 5.5 },

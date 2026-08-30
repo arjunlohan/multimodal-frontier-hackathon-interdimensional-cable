@@ -9,7 +9,7 @@ export const closerLookSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Sharp, staccato political dissection driven by head-writer wit, quick character impressions, conversational self-audits, and rapid-fire joke tags.",
-  referenceImageUrl: "/templates/political-dissection.svg",
+  referenceImageUrl: "/templates/political-dissection.jpg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.5, max: 5.8 },
