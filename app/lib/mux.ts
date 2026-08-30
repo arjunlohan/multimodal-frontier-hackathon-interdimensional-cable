@@ -445,3 +445,45 @@ export async function getTrackVtt(
   }
   return response.text();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Capacity & Lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Mux free plan caps stored assets; exceeding it rejects new direct uploads. */
+export const DEFAULT_MUX_ASSET_LIMIT = 10;
+
+export interface MuxCapacity {
+  used: number;
+  limit: number;
+  available: number;
+  hasRoom: boolean;
+}
+
+/**
+ * Reports how many assets are stored against the plan limit.
+ *
+ * Video generation costs real money and takes minutes, so the pipeline checks
+ * this *before* generating rather than discovering at upload time that Mux will
+ * reject the asset ("Free plan is limited to 10 assets").
+ */
+export async function getMuxCapacity(): Promise<MuxCapacity> {
+  const limit = Number(env.MUX_ASSET_LIMIT ?? DEFAULT_MUX_ASSET_LIMIT) || DEFAULT_MUX_ASSET_LIMIT;
+  const page = await mux.video.assets.list({ limit: 100 });
+  const used = (page.data ?? []).length;
+  const available = Math.max(0, limit - used);
+  return { used, limit, available, hasRoom: available > 0 };
+}
+
+/** Permanently deletes a Mux asset. Safe to call for an already-deleted asset. */
+export async function deleteAsset(assetId: string): Promise<void> {
+  try {
+    await mux.video.assets.delete(assetId);
+  } catch (error) {
+    // A 404 means it is already gone, which satisfies the caller's intent.
+    const status = (error as { status?: number })?.status;
+    if (status !== 404) {
+      throw error;
+    }
+  }
+}

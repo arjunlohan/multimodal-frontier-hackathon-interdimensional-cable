@@ -21,6 +21,33 @@ interface TranscriptSegment {
   text: string;
   startTime: number;
   endTime: number;
+  clipIndex: number;
+}
+
+/** Segment shape as persisted by the generation workflow. */
+interface RawSegment {
+  speaker?: string;
+  text?: string;
+  startTime?: number;
+  endTime?: number;
+  startTimeSeconds?: number;
+  endTimeSeconds?: number;
+  durationSeconds?: number;
+  clipIndex?: number;
+}
+
+interface ResearchFact {
+  id?: string;
+  fact: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+}
+
+interface ResearchBrief {
+  summary?: string;
+  groundedFacts?: ResearchFact[];
+  selectedAngle?: { title?: string; logline?: string };
+  searchMetadata?: { searchQueriesUsed?: string[] };
 }
 
 interface WatchContentProps {
@@ -34,18 +61,58 @@ interface WatchContentProps {
 
 export function WatchContent({ show, template }: WatchContentProps) {
   const hosts = (template.hosts ?? []) as Array<{ name: string; personality: string; position?: string }>;
-  const segments = (show.transcriptSegments ?? []) as TranscriptSegment[];
+  // Mirrors checkShowFormatStep in workflows/generate-show.ts: > 40s is an audio podcast.
+  const isAudio = (show.durationSeconds ?? 16) > 40;
+  // The pipeline persists startTimeSeconds/endTimeSeconds; this component reads
+  // startTime/endTime. Without this mapping the timestamps render as NaN:NaN.
+  const segments: TranscriptSegment[] = ((show.transcriptSegments ?? []) as RawSegment[]).map((seg, i) => {
+    const start = seg.startTime ?? seg.startTimeSeconds ?? 0;
+    const dur = seg.durationSeconds ?? 8;
+    return {
+      speaker: seg.speaker ?? "Host",
+      text: seg.text ?? "",
+      startTime: start,
+      endTime: seg.endTime ?? seg.endTimeSeconds ?? start + dur,
+      clipIndex: seg.clipIndex ?? i,
+    };
+  });
 
   return (
     <PlayerProvider>
       <div className="grid gap-8 md:grid-cols-[1.3fr_1fr]">
         {/* Left Column — Video + Transcript */}
         <div className="space-y-6">
-          {/* Mux Player */}
+          {/* Mux Player — audio podcasts get cover art + audio transport, because
+              Mux cannot generate thumbnails for assets with no video track. */}
           <div className="border-3 border-border shadow-[6px_6px_0_var(--border)]">
+            {isAudio && template.referenceImageUrl && (
+              <div className="relative aspect-video overflow-hidden border-b-3 border-border bg-background-dark">
+                {/* eslint-disable-next-line next/no-img-element */}
+                <img
+                  src={template.referenceImageUrl}
+                  alt={template.name}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div
+                    className="mb-1 text-[11px] font-bold uppercase tracking-[0.25em] text-white/80"
+                    style={{ fontFamily: "var(--font-space-mono)" }}
+                  >
+                    🎙️ Audio Podcast ·
+                    {" "}
+                    {template.name}
+                  </div>
+                  <div className="text-lg font-extrabold leading-tight text-white" style={{ fontFamily: "var(--font-syne)" }}>
+                    {show.topic}
+                  </div>
+                </div>
+              </div>
+            )}
             <VideoPlayer
               playbackId={show.muxPlaybackId!}
               title={show.topic}
+              isAudio={isAudio}
             />
           </div>
 
@@ -157,10 +224,97 @@ function ResearchPanel({ content }: { content: string }) {
         </svg>
       </button>
       {open && (
-        <div className="max-h-96 overflow-y-auto p-4">
-          <div className="research-md text-sm leading-relaxed text-foreground-muted [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-extrabold [&_h1]:text-foreground [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-sm [&_h2]:font-extrabold [&_h2]:text-foreground [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-foreground [&_hr]:my-3 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:mb-2 [&_strong]:font-bold [&_strong]:text-foreground [&_ul]:mb-2">
-            <Markdown>{content}</Markdown>
+        <div className="max-h-[32rem] overflow-y-auto p-4">
+          <ResearchBody content={content} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The research pass persists a structured ResearchBrief as JSON. Rendering that
+ * raw through Markdown produced one unbroken wall of text that blew out the
+ * layout, so parse it and lay out the parts that are worth reading.
+ */
+function ResearchBody({ content }: { content: string }) {
+  let brief: ResearchBrief | null = null;
+  try {
+    const parsed = JSON.parse(content) as ResearchBrief;
+    if (parsed && typeof parsed === "object" && (parsed.summary || parsed.groundedFacts)) {
+      brief = parsed;
+    }
+  } catch {
+    brief = null;
+  }
+
+  // Pre-structured-brief shows stored prose; keep rendering those as Markdown.
+  if (!brief) {
+    return (
+      <div className="research-md break-words text-sm leading-relaxed text-foreground-muted [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-extrabold [&_h1]:text-foreground [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-sm [&_h2]:font-extrabold [&_h2]:text-foreground [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-foreground [&_hr]:my-3 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:mb-2 [&_strong]:font-bold [&_strong]:text-foreground [&_ul]:mb-2">
+        <Markdown>{content}</Markdown>
+      </div>
+    );
+  }
+
+  const label = "mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-foreground-muted";
+
+  return (
+    <div className="space-y-5 text-sm leading-relaxed">
+      {brief.selectedAngle?.title && (
+        <div>
+          <div className={label} style={{ fontFamily: "var(--font-space-mono)" }}>Angle</div>
+          <p className="font-bold text-foreground">{brief.selectedAngle.title}</p>
+          {brief.selectedAngle.logline && (
+            <p className="mt-1 text-foreground-muted">{brief.selectedAngle.logline}</p>
+          )}
+        </div>
+      )}
+
+      {brief.summary && (
+        <div>
+          <div className={label} style={{ fontFamily: "var(--font-space-mono)" }}>Summary</div>
+          <div className="space-y-2 text-foreground-muted">
+            {brief.summary.split("\n\n").filter(Boolean).map((para, i) => <p key={i}>{para}</p>)}
           </div>
+        </div>
+      )}
+
+      {!!brief.groundedFacts?.length && (
+        <div>
+          <div className={label} style={{ fontFamily: "var(--font-space-mono)" }}>
+            Grounded facts (
+            {brief.groundedFacts.length}
+            )
+          </div>
+          <ul className="space-y-3">
+            {brief.groundedFacts.map((f, i) => (
+              <li key={f.id ?? i} className="border-l-2 border-border pl-3">
+                <p className="text-foreground">{f.fact}</p>
+                {f.sourceTitle && (
+                  <p className="mt-1 break-all text-xs text-foreground-muted">
+                    {f.sourceUrl ?
+                        <a href={f.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-accent">{f.sourceTitle}</a> :
+                      f.sourceTitle}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!!brief.searchMetadata?.searchQueriesUsed?.length && (
+        <div>
+          <div className={label} style={{ fontFamily: "var(--font-space-mono)" }}>Search queries</div>
+          <ul className="space-y-1 text-xs text-foreground-muted">
+            {brief.searchMetadata.searchQueriesUsed.map((q, i) => (
+              <li key={i}>
+                ·
+                {q}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

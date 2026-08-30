@@ -3,11 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { GoogleGenAI, ThinkingLevel, VideoGenerationReferenceType } from "@google/genai";
+import { ThinkingLevel, VideoGenerationReferenceType } from "@google/genai";
 
 import { env } from "./env";
+import { buildDeveloperApiClient, buildGenAIClient } from "./genai";
 
-import type { VideoGenerationReferenceImage } from "@google/genai";
+import type { GoogleGenAI, VideoGenerationReferenceImage } from "@google/genai";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Model Identifiers
@@ -101,7 +102,7 @@ function getClient(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for video generation");
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,9 +345,24 @@ async function callOmniOnce(
 ): Promise<VideoClipResult> {
   await waitForOmniSlot();
 
+  // Express-mode (AQ.*) keys cannot drive the SDK's generateVideos: it resolves to
+  // PredictLongRunning, which needs an explicit project path that express keys
+  // reject. Use the REST path instead when we are on that auth surface.
+  if (shouldUseVertexVideoRest()) {
+    return callVertexVideoRest(params);
+  }
+
   const refCount = params.referenceImages?.length ?? 0;
   const label = refCount > 0 ? `(with ${refCount} reference image(s))` : "(no reference image)";
   console.log(`[omni] Calling Gemini Omni 1.1 Flash (${GEMINI_OMNI_VIDEO_MODEL})... ${label} [${params.resolution}, ${params.aspectRatio}, ${params.durationSeconds}s]`);
+
+  // A dedicated Developer-API video key gets its own client and model.
+  const videoClient = hasDedicatedVideoKey() ?
+      buildDeveloperApiClient(env.GEMINI_VIDEO_API_KEY!) :
+    client;
+  const videoModel = hasDedicatedVideoKey() ?
+      (env.GEMINI_VIDEO_MODEL ?? GEMINI_OMNI_VIDEO_MODEL) :
+    GEMINI_OMNI_VIDEO_MODEL;
 
   const generateParams: Parameters<typeof client.models.generateVideos>[0] = {
     config: {
@@ -365,7 +381,7 @@ async function callOmniOnce(
           } :
           {}),
     },
-    model: GEMINI_OMNI_VIDEO_MODEL,
+    model: videoModel,
     prompt: params.prompt,
     ...(params.firstFrameBytes ?
         {
@@ -377,7 +393,7 @@ async function callOmniOnce(
         {}),
   };
 
-  let operation = await client.models.generateVideos(generateParams);
+  let operation = await videoClient.models.generateVideos(generateParams);
   console.log("[omni] Gemini Omni 1.1 Flash request sent successfully");
 
   const operationName = (operation as { name?: string })?.name;
@@ -391,7 +407,7 @@ async function callOmniOnce(
     }
     console.log("[omni] Polling for completion... attempt", pollCount);
     await new Promise(resolve => setTimeout(resolve, 10000));
-    operation = await client.operations.getVideosOperation({ operation });
+    operation = await videoClient.operations.getVideosOperation({ operation });
   }
   console.log("[omni] Generation complete after", pollCount, "polls");
 
@@ -426,7 +442,7 @@ async function callOmniOnce(
   }
 
   console.log("[omni] Downloading video to:", localPath);
-  await client.files.download({ downloadPath: localPath, file: video.video! });
+  await videoClient.files.download({ downloadPath: localPath, file: video.video! });
   console.log("[omni] Download complete, size:", fs.statSync(localPath).size, "bytes");
 
   const videoUrl = video.video?.uri ?? localPath;
@@ -439,6 +455,73 @@ async function callOmniOnce(
     localPath,
     operationName,
     videoUrl,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vertex REST video path
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A dedicated video key means "run video on the Gemini Developer API", which is
+ * the only surface that offers gemini-omni-1.1-flash. Note the AQ.* prefix does
+ * NOT imply Vertex here: express keys exist on both surfaces, so this routing is
+ * explicit rather than sniffed from the key format.
+ */
+function hasDedicatedVideoKey(): boolean {
+  return Boolean(env.GEMINI_VIDEO_API_KEY);
+}
+
+function shouldUseVertexVideoRest(): boolean {
+  if (hasDedicatedVideoKey()) {
+    return false;
+  }
+  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY ?? "";
+  return Boolean(env.GOOGLE_CLOUD_PROJECT) && (env.GOOGLE_GENAI_USE_VERTEX === "true" || apiKey.startsWith("AQ."));
+}
+
+async function callVertexVideoRest(params: InternalGenerateParams): Promise<VideoClipResult> {
+  const { generateVideoViaVertex, VertexVideoRAIError } = await import("./vertex-video");
+
+  let result;
+  try {
+    result = await generateVideoViaVertex({
+      prompt: params.prompt,
+      durationSeconds: params.durationSeconds,
+      aspectRatio: params.aspectRatio,
+      resolution: params.resolution,
+      firstFrameBytes: params.firstFrameBytes,
+      firstFrameMimeType: params.firstFrameMimeType,
+      lastFrameBytes: params.lastFrameBytes,
+      lastFrameMimeType: params.lastFrameMimeType,
+    });
+  } catch (error) {
+    // Preserve the existing RAI retry semantics used by callOmniWithRetry.
+    if (error instanceof VertexVideoRAIError) {
+      throw new VeoRAIFilterError(error.reasons);
+    }
+    throw error;
+  }
+
+  let localPath = params.outputPath;
+  if (!localPath) {
+    const tmpDir = path.join(os.tmpdir(), "interdimensional-cable");
+    fs.mkdirSync(tmpDir, { recursive: true });
+    localPath = path.join(tmpDir, `clip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`);
+  } else {
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
+  }
+
+  fs.writeFileSync(localPath, result.videoBuffer);
+  console.log("[vertex-video] wrote", fs.statSync(localPath).size, "bytes to", localPath);
+
+  return {
+    durationSeconds: params.durationSeconds,
+    filePath: localPath,
+    interactionId: params.previousInteractionId,
+    localPath,
+    operationName: result.operationName,
+    videoUrl: localPath,
   };
 }
 
@@ -601,7 +684,7 @@ export async function generateText(
   const response = await client.models.generateContent({
     config: {
       maxOutputTokens: 8192,
-      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+      systemInstruction,
       temperature: 0.9,
       thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),

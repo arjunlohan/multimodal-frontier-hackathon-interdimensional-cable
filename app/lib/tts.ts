@@ -1,9 +1,10 @@
 /* eslint-disable no-console */
 import { Buffer } from "node:buffer";
 
-import { GoogleGenAI } from "@google/genai";
-
 import { env } from "./env";
+import { buildGenAIClient } from "./genai";
+
+import type { GoogleGenAI } from "@google/genai";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Client
@@ -14,7 +15,7 @@ function getClient(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for TTS");
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +30,99 @@ const VOICE_MAP: Record<string, string> = {
 };
 
 const FALLBACK_VOICES = ["Charon", "Orus", "Puck", "Fenrir", "Aoede", "Kore", "Enceladus"];
+
+// Prebuilt Gemini voices are not accent-locked, so accent and cadence have to be
+// steered with a natural-language instruction. Rather than hardcoding one line per
+// known host, derive it from the template's own host description so any template
+// the user adds gets an appropriate voice automatically.
+
+/**
+ * Voices that commonly read as masculine / feminine, used when a template does
+ *  not pin an explicit ttsVoice.
+ */
+const MASC_VOICES = ["Charon", "Orus", "Puck", "Fenrir", "Enceladus", "Iapetus", "Algieba", "Rasalgethi", "Achird"];
+const FEM_VOICES = ["Aoede", "Kore", "Leda", "Zephyr", "Callirrhoe", "Autonoe", "Despina", "Erinome", "Sulafat"];
+
+const ACCENT_PATTERNS: Array<{ match: RegExp; accent: string }> = [
+  { match: /\b(british|english|uk|london|england|welsh)\b/i, accent: "British English" },
+  { match: /\b(irish|ireland|dublin)\b/i, accent: "Irish English" },
+  { match: /\b(scottish|scotland|glasgow)\b/i, accent: "Scottish English" },
+  { match: /\b(australian|australia|aussie)\b/i, accent: "Australian English" },
+  { match: /\b(canadian|canada)\b/i, accent: "Canadian English" },
+  { match: /\b(indian|india|mumbai|delhi)\b/i, accent: "Indian English" },
+  { match: /\b(south african)\b/i, accent: "South African English" },
+];
+
+// Pronouns are the only reliable signal. Role nouns like "comedian", "host", or
+// "journalist" are gender-neutral and previously mis-sexed hosts described with
+// "she" simply because the noun appeared earlier in the sentence.
+const FEMININE_PRONOUNS = /\b(?:she|her|hers)\b/i;
+const MASCULINE_PRONOUNS = /\b(?:he|him|his)\b/i;
+const FEMININE_NOUNS = /\b(?:woman|female|actress|comedienne|hostess)\b/i;
+const MASCULINE_NOUNS = /\b(?:man|male|actor)\b/i;
+
+function hostProfileText(host: TtsHost): string {
+  if (typeof host === "string") {
+    return host;
+  }
+  return [host.name, host.role, host.position, host.personality].filter(Boolean).join(" ");
+}
+
+/** Infers the perceived gender of a host from the template's description. */
+export function inferHostGender(host: TtsHost): "feminine" | "masculine" | "unknown" {
+  const text = hostProfileText(host);
+
+  // Pronouns win outright when only one set is present.
+  const femPro = FEMININE_PRONOUNS.test(text);
+  const mascPro = MASCULINE_PRONOUNS.test(text);
+  if (femPro !== mascPro) {
+    return femPro ? "feminine" : "masculine";
+  }
+
+  // No pronouns (or genuinely mixed): fall back to explicitly gendered nouns.
+  const femNoun = FEMININE_NOUNS.test(text);
+  const mascNoun = MASCULINE_NOUNS.test(text);
+  if (femNoun !== mascNoun) {
+    return femNoun ? "feminine" : "masculine";
+  }
+
+  return "unknown";
+}
+
+/** Infers the host's accent from the template description; defaults to American. */
+export function inferHostAccent(host: TtsHost): string {
+  const text = hostProfileText(host);
+  for (const { match, accent } of ACCENT_PATTERNS) {
+    if (match.test(text)) {
+      return accent;
+    }
+  }
+  return "American English";
+}
+
+/**
+ * Builds the delivery instruction for a host from the template's own description,
+ * so accent and register follow whatever template the user picked.
+ */
+export function deliveryStyleForHost(host: TtsHost): string | undefined {
+  const accent = inferHostAccent(host);
+  const name = typeof host === "string" ? host : host.name ?? "";
+  const personality = typeof host === "string" ? "" : (host.personality ?? "");
+
+  // Compress the persona prose into a short delivery cue; the full personality
+  // is already baked into the script itself.
+  const cue = personality
+    .split(/[.!?]/)
+    .map(t => t.trim())
+    .filter(t => t.length > 12)
+    .slice(0, 2)
+    .join(". ");
+
+  const who = name ? `as ${name}` : "as the host";
+  return cue ?
+    `Read in a ${accent} accent, ${who}. Delivery notes: ${cue}` :
+    `Read in a ${accent} accent, ${who}, with natural late-night comedic timing`;
+}
 
 export type TtsHost =
   | string |
@@ -53,7 +147,21 @@ export function voiceForHost(host: TtsHost | string, index = 0): string {
   }
 
   const name = host.name ?? "";
-  return VOICE_MAP[name] ?? FALLBACK_VOICES[index % FALLBACK_VOICES.length];
+  const known = VOICE_MAP[name];
+  if (known) {
+    return known;
+  }
+
+  // Unknown host (e.g. a user-added template): pick from the pool that matches
+  // the perceived gender in the template description instead of a flat fallback.
+  const gender = inferHostGender(host);
+  if (gender === "feminine") {
+    return FEM_VOICES[index % FEM_VOICES.length];
+  }
+  if (gender === "masculine") {
+    return MASC_VOICES[index % MASC_VOICES.length];
+  }
+  return FALLBACK_VOICES[index % FALLBACK_VOICES.length];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,6 +220,7 @@ async function translateTranscript(
 
   const response = await client.models.generateContent({
     contents: [{
+      role: "user",
       parts: [{
         text: `Translate the following talk show transcript to ${langName}. Return ONLY the translated text, preserving the speaker labels and structure. Do not add any commentary or notes.\n\n${transcript}`,
       }],
@@ -142,7 +251,10 @@ export async function generateTts(
   const hostNames = hosts.map(h => (typeof h === "string" ? h : h.name));
   console.log("[tts] generateTts called, transcript length:", transcript.length, "hosts:", hostNames, "lang:", langName);
 
-  const textToSpeak = targetLang ?
+  // Only translate when actually changing language; en -> en is a wasted call
+  // and an unnecessary failure point on the generation critical path.
+  const needsTranslation = Boolean(targetLang) && langName !== "English";
+  const textToSpeak = needsTranslation ?
       await translateTranscript(transcript, langName) :
     transcript;
 
@@ -165,14 +277,19 @@ export async function generateTts(
         },
       };
 
-  console.log("[tts] Calling gemini-3.1-flash-tts-preview, lang:", langName);
+  // Steer accent/cadence per host. Only applies to single-host shows; multi-speaker
+  // dialogue carries its own speaker labels and is left untouched.
+  const style = hosts.length === 1 ? deliveryStyleForHost(hosts[0] ?? "") : undefined;
+  const promptText = style ? `${style}.\n\n${textToSpeak}` : textToSpeak;
+
+  console.log("[tts] Calling gemini-3.1-flash-tts-preview, lang:", langName, "style:", style ? "yes" : "none");
 
   const response = await client.models.generateContent({
     config: {
       responseModalities: ["AUDIO"],
       speechConfig,
     },
-    contents: [{ parts: [{ text: textToSpeak }] }],
+    contents: [{ role: "user", parts: [{ text: promptText }] }],
     model: "gemini-3.1-flash-tts-preview",
   });
 

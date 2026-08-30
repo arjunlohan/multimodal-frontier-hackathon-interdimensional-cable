@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+
+import { buildGenAIClient } from "../app/lib/genai";
 import { and, cosineDistance, desc, eq, gt, sql } from "drizzle-orm";
 
 import { env } from "@/app/lib/env";
@@ -16,14 +18,14 @@ function getClient(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for Google text embeddings");
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 export async function getGoogleEmbedding(text: string): Promise<number[]> {
   const client = getClient();
   const response = await client.models.embedContent({
     model: "text-embedding-004",
-    contents: [{ parts: [{ text }] }],
+    contents: [{ role: "user", parts: [{ text }] }],
   });
   const values = response.embeddings?.[0]?.values;
   if (!values) {

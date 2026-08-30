@@ -82,6 +82,10 @@ export async function generateShowWorkflow(
 
     const formatInfo = await checkShowFormatStep(showId);
 
+    // Storage preflight. Generation costs real money and minutes of wall clock,
+    // so refuse before spending it if Mux has no room for the finished asset.
+    await checkStorageCapacityStep(showId);
+
     if (formatInfo.isAudioPodcast) {
       console.log("[workflow] Audio podcast format selected (duration:", formatInfo.durationSeconds, "s) — synthesizing with Gemini 3.1 Flash TTS");
       await audioPodcastSynthesisStep(progress, showId);
@@ -144,9 +148,58 @@ async function markFailedStep(showId: string, errorMessage: string): Promise<voi
   console.log("[workflow:markFailed] Marking show as failed:", showId, "error:", errorMessage);
   const { eq } = await import("drizzle-orm");
   const { db, schema } = await getDb();
+
+  // Step errors can lose their message crossing the workflow boundary, which is
+  // why failures used to surface as a bare "Show generation failed". Steps that
+  // already recorded a specific, user-actionable reason keep it.
+  const existing = await db.query.generatedShows.findFirst({
+    where: eq(schema.generatedShows.id, showId),
+  });
+  const stored = existing?.error ?? "";
+  const isSpecific = stored.length > 0 && stored !== "Show generation failed";
+
   await db.update(schema.generatedShows)
-    .set({ status: "failed", error: errorMessage })
+    .set({ status: "failed", error: isSpecific ? stored : errorMessage })
     .where(eq(schema.generatedShows.id, showId));
+}
+
+/**
+ * Verifies Mux has room for the finished asset before any generation happens.
+ *
+ * Without this the pipeline would render every clip, stitch them, and only then
+ * hit "Free plan is limited to 10 assets" at upload — throwing away the entire
+ * generation spend.
+ */
+async function checkStorageCapacityStep(showId: string): Promise<void> {
+  "use step";
+  const { eq } = await import("drizzle-orm");
+  const { db, schema } = await getDb();
+  const { getMuxCapacity } = await import("@/app/lib/mux");
+
+  const capacity = await getMuxCapacity();
+  console.log(`[workflow:preflight] Mux storage ${capacity.used}/${capacity.limit} used, ${capacity.available} free`);
+
+  if (capacity.hasRoom) {
+    return;
+  }
+
+  const message = `Mux storage is full (${capacity.used}/${capacity.limit} assets). ` +
+    "Delete a show from the library to free a slot, then try again. " +
+    "Generation was stopped before starting so no render time was spent.";
+
+  await db.update(schema.generatedShows)
+    .set({ status: "failed", error: message })
+    .where(eq(schema.generatedShows.id, showId));
+
+  throw new StorageFullError(message);
+}
+
+/** Thrown when Mux has no capacity; surfaced to the user verbatim. */
+class StorageFullError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StorageFullError";
+  }
 }
 
 async function checkShowFormatStep(showId: string): Promise<{ isAudioPodcast: boolean; durationSeconds: number }> {
@@ -342,7 +395,7 @@ async function audioPodcastSynthesisStep(
 
   // Store path for upload step
   await db.update(schema.generatedShows)
-    .set({ error: `__stitched:${audioPath}` })
+    .set({ localRenderPath: audioPath })
     .where(eq(schema.generatedShows.id, showId));
 
   await writeToStream(progress, { type: "completed", step: "generate-clips" });
@@ -780,7 +833,7 @@ async function stitchStep(
 
   // Store stitched path temporarily (will be used in upload step)
   await db.update(schema.generatedShows)
-    .set({ error: `__stitched:${stitchedPath}` })
+    .set({ localRenderPath: stitchedPath })
     .where(eq(schema.generatedShows.id, showId));
 
   // Clean up individual clip files
@@ -816,22 +869,38 @@ async function uploadStep(
     throw new Error("Show not found");
 
   // Retrieve stitched path from temporary storage
-  const stitchedPath = show.error?.startsWith("__stitched:") ?
-      show.error.slice("__stitched:".length) :
-    null;
+  const stitchedPath = show.localRenderPath ?? null;
 
   if (!stitchedPath) {
     throw new Error("Stitched video path not found");
   }
 
-  // Clear the temporary storage
-  await db.update(schema.generatedShows)
-    .set({ error: null })
-    .where(eq(schema.generatedShows.id, showId));
+  // NOTE: the stitched path is stashed in `error` and must survive until the
+  // upload actually succeeds. Clearing it here meant any retry (e.g. a Mux 400)
+  // lost the path and failed permanently with "Stitched video path not found".
 
-  // Upload to Mux via direct upload
+  // Upload to Mux via direct upload. If Mux has filled up between the preflight
+  // check and now, keep the rendered file on disk and tell the user where it is
+  // rather than discarding a completed (and paid-for) render.
   console.log("[workflow:upload] Creating Mux direct upload...");
-  const { uploadId, uploadUrl } = await createDirectUpload();
+  let uploadId: string;
+  let uploadUrl: string;
+  try {
+    ({ uploadId, uploadUrl } = await createDirectUpload());
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (/limited to \d+ assets|exceeding this limit/i.test(detail)) {
+      const msg = `Mux storage filled up before upload. Your rendered show was kept at: ${stitchedPath} ` +
+        "— delete a show from the library to free a slot, then use Retry upload. " +
+        "The render is complete, so retrying costs nothing to regenerate.";
+      console.error("[workflow:upload] Mux full; preserving local render at", stitchedPath);
+      await db.update(schema.generatedShows)
+        .set({ status: "failed", error: msg })
+        .where(eq(schema.generatedShows.id, showId));
+      throw new Error(msg);
+    }
+    throw error;
+  }
   console.log("[workflow:upload] Upload URL created, uploadId:", uploadId);
 
   // Upload the file
@@ -866,12 +935,14 @@ async function uploadStep(
     throw new Error("Mux asset ready but no playback ID found");
   }
 
-  // Update the show record
+  // Update the show record, clearing the stashed path now that upload succeeded.
   await db.update(schema.generatedShows)
     .set({
       status: "ready",
       muxAssetId: assetId,
       muxPlaybackId: playbackId,
+      error: null,
+      localRenderPath: null,
     })
     .where(eq(schema.generatedShows.id, showId));
 

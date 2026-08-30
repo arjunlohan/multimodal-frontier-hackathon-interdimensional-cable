@@ -197,7 +197,7 @@ async function importMuxAssets() {
         const chunk = rawChunks[i];
         const embRes = await client.models.embedContent({
           model: "text-embedding-004",
-          contents: [{ parts: [{ text: chunk.text }] }],
+          contents: [{ role: "user", parts: [{ text: chunk.text }] }],
         });
         const values = embRes.embeddings?.[0]?.values;
         if (values && values.length > 0) {

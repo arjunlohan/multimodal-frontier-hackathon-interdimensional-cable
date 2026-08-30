@@ -153,7 +153,7 @@ describe("tts", () => {
               },
             },
           }),
-          contents: [{ parts: [{ text: "Hello audience! [laughs]" }] }],
+          contents: [{ role: "user", parts: [{ text: expect.stringContaining("Hello audience! [laughs]") }] }],
           model: "gemini-3.1-flash-tts-preview",
         }),
       );
@@ -200,7 +200,7 @@ describe("tts", () => {
               },
             },
           }),
-          contents: [{ parts: [{ text: transcript }] }],
+          contents: [{ role: "user", parts: [{ text: transcript }] }],
           model: "gemini-3.1-flash-tts-preview",
         }),
       );
@@ -273,7 +273,7 @@ describe("tts", () => {
       expect(mockGenerateContent).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
-          contents: [{ parts: [{ text: expect.stringContaining("Translate the following talk show transcript to Spanish") }] }],
+          contents: [{ role: "user", parts: [{ text: expect.stringContaining("Translate the following talk show transcript to Spanish") }] }],
           model: "gemini-3-flash-preview",
         }),
       );
@@ -282,7 +282,7 @@ describe("tts", () => {
       expect(mockGenerateContent).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
-          contents: [{ parts: [{ text: "¡Hola a todos! [risas]" }] }],
+          contents: [{ role: "user", parts: [{ text: expect.stringContaining("¡Hola a todos! [risas]") }] }],
           model: "gemini-3.1-flash-tts-preview",
         }),
       );

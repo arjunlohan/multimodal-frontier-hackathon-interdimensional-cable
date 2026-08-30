@@ -99,8 +99,10 @@ export function calculateClipWordBudgets(
       startTimeSeconds: startTime,
       endTimeSeconds: endTime,
       durationSeconds: duration,
-      targetWordsMin: Math.max(10, Math.floor(targetWordsPerClip * 0.85)), // ~17 words
-      targetWordsMax: Math.ceil(targetWordsPerClip * 1.15), // ~23 words
+      // Models write to the top of whatever band they are given, so a +15% ceiling
+      // made a 180s target land at ~200s. Keep the band tight around the target.
+      targetWordsMin: Math.max(10, Math.floor(targetWordsPerClip * 0.92)), // ~18 words
+      targetWordsMax: Math.ceil(targetWordsPerClip * 1.04), // ~21 words
       assignedActId: selectedAct.id,
       actName: selectedAct.name,
     });

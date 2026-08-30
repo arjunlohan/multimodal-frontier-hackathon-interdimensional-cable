@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+
+import { buildGenAIClient } from "./genai";
 import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -22,7 +24,7 @@ function getGenAIClient(): GoogleGenAI {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY required for Memory Bank");
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -549,7 +551,7 @@ Output valid JSON only.`;
 
     const response = await client.models.generateContent({
       model: "gemini-3.7-flash",
-      contents: [{ parts: [{ text: extractionPrompt }] }],
+      contents: [{ role: "user", parts: [{ text: extractionPrompt }] }],
       config: {
         responseMimeType: "application/json",
       },

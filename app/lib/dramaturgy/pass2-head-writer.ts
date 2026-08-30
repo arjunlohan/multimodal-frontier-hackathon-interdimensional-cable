@@ -1,7 +1,9 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ThinkingLevel } from "@google/genai";
 
 import { env } from "@/app/lib/env";
 import { calculateClipWordBudgets } from "@/app/lib/skills/archetype-a";
+
+import { buildGenAIClient } from "../genai";
 
 import { HeadWriterDraftSchema } from "./schemas";
 import type {
@@ -14,12 +16,14 @@ import type {
   TurnType,
 } from "./types";
 
+import type { GoogleGenAI } from "@google/genai";
+
 function getClient(): GoogleGenAI | null {
   const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     return null;
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 function countWords(text: string): number {
@@ -486,6 +490,8 @@ ${researchBrief.selectedAngle.suggestedAnalogies.map(a => `- ${a}`).join("\n")}
 
 ACT & CLIP BUDGET CONSTRAINTS:
 Total Duration: ${durationSeconds} seconds (${clipBudgets.length} clips of 8 seconds each)
+HARD TOTAL WORD BUDGET: ${Math.round(durationSeconds * 2.46)} words across all clips (spoken delivery measures 2.46 words/second).
+Staying within this total matters more than filling any individual clip to its maximum. Going over makes the episode run long.
 Clip Budgets:
 ${clipBudgets.map(b => `- Clip ${b.clipIndex} (${b.startTimeSeconds}s - ${b.endTimeSeconds}s, Act: ${b.actName}): Target words: ${b.targetWordsMin}-${b.targetWordsMax} words`).join("\n")}
 
@@ -496,9 +502,12 @@ Write a complete 3-Act HeadWriterDraft with ${clipBudgets.length} ComedicBeats m
       model: "gemini-3.7-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        systemInstruction: { parts: [{ text: DESK_SHOW_SYSTEM_INSTRUCTION }] },
+        systemInstruction: DESK_SHOW_SYSTEM_INSTRUCTION,
         temperature: input.options?.temperature ?? 0.85,
-        maxOutputTokens: 8192,
+        // 8192 truncated the draft mid-JSON, which silently fell back to the
+        // deterministic synthesizer. Force real JSON and give it room to finish.
+        maxOutputTokens: 32768,
+        responseMimeType: "application/json",
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       },
     });
@@ -564,9 +573,12 @@ Construct a dynamic multi-speaker conversation traversing core nodes and tangent
       model: "gemini-3.7-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        systemInstruction: { parts: [{ text: PODCAST_SYSTEM_INSTRUCTION }] },
+        systemInstruction: PODCAST_SYSTEM_INSTRUCTION,
         temperature: input.options?.temperature ?? 0.85,
-        maxOutputTokens: 8192,
+        // 8192 truncated the draft mid-JSON, which silently fell back to the
+        // deterministic synthesizer. Force real JSON and give it room to finish.
+        maxOutputTokens: 32768,
+        responseMimeType: "application/json",
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       },
     });

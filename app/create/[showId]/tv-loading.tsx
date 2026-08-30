@@ -4,6 +4,7 @@ interface TVLoadingProps {
   templateName: string;
   topic: string;
   status: string;
+  isAudio?: boolean;
 }
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -17,8 +18,14 @@ const STATUS_MESSAGES: Record<string, string> = {
   failed: "Something went wrong.",
 };
 
-export function TVLoading({ templateName, topic, status }: TVLoadingProps) {
-  const message = STATUS_MESSAGES[status] ?? "Processing...";
+const AUDIO_STATUS_MESSAGES: Record<string, string> = {
+  ...STATUS_MESSAGES,
+  generating: "Synthesizing audio...",
+  stitching: "Assembling audio track...",
+};
+
+export function TVLoading({ templateName, topic, status, isAudio = false }: TVLoadingProps) {
+  const message = (isAudio ? AUDIO_STATUS_MESSAGES : STATUS_MESSAGES)[status] ?? "Processing...";
   const isActive = !["ready", "failed"].includes(status);
 
   return (

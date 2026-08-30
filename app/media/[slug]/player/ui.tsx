@@ -15,6 +15,11 @@ interface VideoPlayerProps {
   playbackId: string;
   title: string;
   accentColor?: string;
+  /**
+   * Audio-only Mux assets have no video track (and no thumbnail), so render
+   *  the compact audio transport instead of a 16:9 black rectangle.
+   */
+  isAudio?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +30,7 @@ export function VideoPlayer({
   playbackId,
   title,
   accentColor = "#ff6101",
+  isAudio = false,
 }: VideoPlayerProps) {
   const { consumePendingPlaybackState, playerKey, playerRef, setCurrentTime } = usePlayer();
 
@@ -74,11 +80,11 @@ export function VideoPlayer({
         video_title: title,
       }}
       accentColor={accentColor}
+      audio={isAudio}
       onTimeUpdate={handleTimeUpdate}
-      style={{
-        aspectRatio: "16 / 9",
-        width: "100%",
-      }}
+      style={isAudio ?
+          { width: "100%" } :
+          { aspectRatio: "16 / 9", width: "100%" }}
     />
   );
 }

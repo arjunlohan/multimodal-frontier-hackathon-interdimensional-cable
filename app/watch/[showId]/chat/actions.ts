@@ -1,12 +1,11 @@
 "use server";
 
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
 import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { env } from "@/app/lib/env";
+import { generateChatText } from "@/app/lib/genai";
 import { buildPersonalizedPromptContext, getMemorySummary, updateMemoryFromInteraction } from "@/app/lib/memory-bank";
 import { generateSingleVoiceClip } from "@/app/lib/tts";
 import * as schema from "@/db/schema";
@@ -123,19 +122,17 @@ Guidelines:
       content: msg.content,
     }));
 
-    // Call Gemini via AI SDK
-    const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
-    const google = createGoogleGenerativeAI({ apiKey });
-    const result = await generateText({
-      model: google("gemini-3.7-flash"),
+    // Call Gemini through the shared client so this stays on the same auth
+    // surface (Vertex express) as the rest of the pipeline.
+    const responseText = await generateChatText({
       system: systemPrompt,
       messages,
-      providerOptions: {
-        google: {
-          thinkingConfig: { thinkingLevel: "high" },
-        },
-      },
+      model: "gemini-3.7-flash",
+      // Viewers ask about things the episode skipped, and about events newer than
+      // the model's training data, so ground the host's answers in live search.
+      useSearch: true,
     });
+    const result = { text: responseText };
 
     // Save assistant response
     const [savedAssistantMsg] = await db
@@ -193,9 +190,6 @@ export async function createShowTangentAction(
 ): Promise<CreateTangentResult> {
   try {
     const memoryContext = await buildPersonalizedPromptContext(userId);
-    const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
-    const google = createGoogleGenerativeAI({ apiKey });
-
     const tangentPrompt = `You are ${hostName}. A listener just interrupted your show to ask:
 "${question}"
 
@@ -209,17 +203,11 @@ Requirements:
 - End with a punchy sign-off back to the main broadcast
 - Return ONLY the spoken words, no sound effects or stage directions`;
 
-    const scriptRes = await generateText({
-      model: google("gemini-3.7-flash"),
+    const scriptText = (await generateChatText({
       prompt: tangentPrompt,
-      providerOptions: {
-        google: {
-          thinkingConfig: { thinkingLevel: "high" },
-        },
-      },
-    });
-
-    const scriptText = scriptRes.text.trim();
+      model: "gemini-3.7-flash",
+      useSearch: true,
+    })).trim();
     const audioData = await generateSingleVoiceClip(scriptText, hostName);
 
     const [savedTangent] = await db

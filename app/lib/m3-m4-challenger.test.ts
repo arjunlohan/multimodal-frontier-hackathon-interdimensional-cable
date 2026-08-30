@@ -313,7 +313,7 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
               },
             },
           }),
-          contents: [{ parts: [{ text: transcript }] }],
+          contents: [{ role: "user", parts: [{ text: transcript }] }],
           model: "gemini-3.1-flash-tts-preview",
         }),
       );

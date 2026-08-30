@@ -1,7 +1,9 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ThinkingLevel } from "@google/genai";
 
 import { env } from "@/app/lib/env";
 import { getDefaultShowSkill } from "@/app/lib/skills/registry";
+
+import { buildGenAIClient } from "../genai";
 
 import { ResearchBriefSchema } from "./schemas";
 import type {
@@ -14,12 +16,14 @@ import type {
   SearchGroundingMetadata,
 } from "./types";
 
+import type { GoogleGenAI } from "@google/genai";
+
 function getClient(): GoogleGenAI | null {
   const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     return null;
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,9 +389,11 @@ Generate a comprehensive ResearchBrief JSON with verified facts, bizarre stats, 
       model: "gemini-3.7-flash",
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
       config: {
-        systemInstruction: { parts: [{ text: PASS1_SYSTEM_INSTRUCTION }] },
+        systemInstruction: PASS1_SYSTEM_INSTRUCTION,
         temperature: input.options?.temperature ?? 0.75,
-        maxOutputTokens: 8192,
+        // Large grounded ResearchBrief; 8192 truncated it mid-JSON and silently
+        // fell back to the mock. googleSearch is incompatible with responseMimeType.
+        maxOutputTokens: 32768,
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
         ...(enableSearch ? { tools: [{ googleSearch: {} }] } : {}),
       },

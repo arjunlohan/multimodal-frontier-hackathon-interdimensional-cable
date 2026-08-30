@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
+import { getStorageCapacityAction } from "@/app/media/actions";
 import { ShowCard } from "@/app/media/show-card";
 import { db, generatedShows, showTemplates } from "@/db";
 
@@ -215,6 +216,8 @@ export default async function MediaPage({ searchParams }: MediaPageProps) {
   const currentPage = Math.max(1, Number.parseInt(params.page || "1", 10) || 1);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 
+  const capacity = await getStorageCapacityAction();
+
   const [shows, [{ count }]] = await Promise.all([
     db
       .select({
@@ -260,6 +263,29 @@ export default async function MediaPage({ searchParams }: MediaPageProps) {
             <p className="max-w-2xl text-lg text-foreground-muted">
               Previously generated AI talk show episodes. Pick one to rewatch or continue the conversation.
             </p>
+
+            {/* Storage meter: the Mux plan caps stored assets, and generation is
+                refused (before spending render time) once the cap is reached. */}
+            {capacity && (
+              <div
+                className={`mt-5 inline-flex items-center gap-3 border-3 border-border px-4 py-2 ${capacity.hasRoom ? "bg-surface" : "bg-red-600 text-white"}`}
+                style={{ fontFamily: "var(--font-space-mono)" }}
+              >
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em]">
+                  Mux storage
+                </span>
+                <span className="text-sm font-bold">
+                  {capacity.used}
+                  {" / "}
+                  {capacity.limit}
+                </span>
+                <span className="text-[11px]">
+                  {capacity.hasRoom ?
+                    `${capacity.available} slot${capacity.available === 1 ? "" : "s"} free` :
+                    "Full — delete a show to generate another"}
+                </span>
+              </div>
+            )}
           </div>
 
           {shows.length > 0 ?

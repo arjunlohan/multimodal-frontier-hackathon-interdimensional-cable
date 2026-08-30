@@ -125,7 +125,7 @@ Return valid JSON in this format:
 
   const response = await client.models.generateContent({
     model: "gemini-3.7-flash",
-    contents: [{ parts: [{ text: routingPrompt }] }],
+    contents: [{ role: "user", parts: [{ text: routingPrompt }] }],
     config: {
       responseMimeType: "application/json",
     },

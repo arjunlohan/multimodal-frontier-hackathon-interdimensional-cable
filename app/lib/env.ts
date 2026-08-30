@@ -22,6 +22,9 @@ const EnvSchema = z.object({
   MUX_TOKEN_ID: requiredString("Mux access token ID.", "Required to access Mux APIs"),
   MUX_TOKEN_SECRET: requiredString("Mux access token secret.", "Required to access Mux APIs"),
 
+  // Mux plan capacity (free plan caps stored assets; generation is wasted if we exceed it)
+  MUX_ASSET_LIMIT: optionalString("Max stored Mux assets for the current plan (default 10, the free-plan cap)."),
+
   // Mux signing keys (optional, for signed playback URLs)
   MUX_SIGNING_KEY: optionalString("Mux signing key ID for signed playback URLs."),
   MUX_PRIVATE_KEY: optionalString("Mux signing private key for signed playback URLs."),
@@ -33,6 +36,15 @@ const EnvSchema = z.object({
 
   // Gemini API key (for Gemini Omni 1.1 Flash video generation and LLM)
   GEMINI_API_KEY: optionalString("Gemini API key for Gemini Omni 1.1 Flash video generation and research/scripting."),
+  GOOGLE_GENAI_USE_VERTEX: optionalString("Set to \"true\" when GEMINI_API_KEY is a Vertex/Agent Platform express-mode key (AQ.* prefix)."),
+  GOOGLE_CLOUD_PROJECT: optionalString("GCP project ID. Required for video generation: long-running video ops cannot be addressed by an express-mode key alone."),
+  GOOGLE_CLOUD_LOCATION: optionalString("Vertex location for video generation (default us-central1)."),
+  VERTEX_VIDEO_MODEL: optionalString("Vertex video model id (default veo-3.1-generate-001)."),
+
+  // Dedicated video key. Video is the one workload that can sensibly sit on a
+  // different billing surface (and key) from the rest of the pipeline.
+  GEMINI_VIDEO_API_KEY: optionalString("Gemini Developer API key used only for video generation. When set, video uses GEMINI_VIDEO_MODEL on the Developer API instead of Vertex."),
+  GEMINI_VIDEO_MODEL: optionalString("Developer API video model (default gemini-omni-1.1-flash). Only used with GEMINI_VIDEO_API_KEY."),
 
   // ElevenLabs API key (optional; required only if you want to use translateAudio)
   ELEVENLABS_API_KEY: optionalString("ElevenLabs API key for translateAudio workflow."),

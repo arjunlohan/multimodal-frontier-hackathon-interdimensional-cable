@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { buildGenAIClient } from "../genai";
 
 import { env } from "@/app/lib/env";
 import type { ShowSkill } from "@/app/lib/skills/types";
@@ -20,7 +21,7 @@ function getClient(): GoogleGenAI | null {
   if (!apiKey) {
     return null;
   }
-  return new GoogleGenAI({ apiKey });
+  return buildGenAIClient(apiKey);
 }
 
 function countWords(text: string): number {

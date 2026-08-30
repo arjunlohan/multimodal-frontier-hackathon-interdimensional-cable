@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { GeneratedShow, ShowTemplate } from "@/db/schema";
 
 import { pollShowStatusAction } from "./actions";
-import { GENERATION_STEPS, POLL_INTERVAL } from "./constants";
+import { generationSteps, POLL_INTERVAL } from "./constants";
 import type { GenerationStepId } from "./constants";
 import { TVLoading } from "./tv-loading";
 
@@ -77,7 +77,9 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
   const useFrameChaining = show.useFrameChaining ?? false;
   const completedSteps = getCompletedSteps(status, useFrameChaining);
   const currentStep = STATUS_TO_STEP[status];
-  const visibleSteps = GENERATION_STEPS.filter(
+  // Mirrors checkShowFormatStep in workflows/generate-show.ts: > 40s is an audio podcast.
+  const isAudio = (show.durationSeconds ?? 16) > 40;
+  const visibleSteps = generationSteps(isAudio).filter(
     s => s.id !== "frame-chain" || useFrameChaining,
   );
 
@@ -88,6 +90,7 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
         templateName={template.name}
         topic={show.topic}
         status={status}
+        isAudio={isAudio}
       />
 
       {/* Step Progress */}

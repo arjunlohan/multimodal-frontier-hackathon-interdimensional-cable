@@ -106,6 +106,9 @@ export const generatedShows = pgTable("generated_shows", {
   durationSeconds: integer("duration_seconds").notNull(),
   familiarity: text("familiarity").notNull(), // "beginner" | "familiar" | "expert"
   status: text("status").notNull().default("pending"), // pending|researching|scripting|generating|stitching|uploading|ready|failed
+  // Path to the finished local render, handed from the stitch/synthesis step to the
+  // upload step. Previously stashed in `error`, which lost it on upload retries.
+  localRenderPath: text("local_render_path"),
   researchContext: text("research_context"),
   transcript: text("transcript"),
   transcriptSegments: jsonb("transcript_segments"), // [{speaker, text, startTime, endTime}]
