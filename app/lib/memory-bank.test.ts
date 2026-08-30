@@ -327,7 +327,7 @@ describe("persistent cognitive memory bank", () => {
 
       expect(cognitiveContext.workingMemory).toContain("[USER]: Can you explain RAFT consensus?");
       expect(cognitiveContext.episodicSummary.interests).toContain("distributed-systems");
-      expect(cognitiveContext.proceduralCraft).toContain("INVESTIGATIVE DESK");
+      expect(cognitiveContext.proceduralCraft).toContain("JOHN OLIVER LIKE");
       expect(cognitiveContext.promptBlock).toContain("=== PERSISTENT USER MEMORY BANK ===");
     });
   });

@@ -4,7 +4,7 @@ import type { ShowSkill } from "./types";
 export const closerLookSkill: ShowSkill = {
   id: "closer-look",
   slug: "closer-look",
-  name: "Surgical Political Dissection",
+  name: "Seth Meyers Like",
   archetype: "writers_room_desk",
   showType: "monologue",
   description:

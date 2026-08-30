@@ -640,7 +640,7 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
 
       expect(context.workingMemory).toBe("No active session history.");
       expect(context.episodicSummary.totalMemories).toBe(0);
-      expect(context.proceduralCraft).toContain("INVESTIGATIVE DESK DEEP-DIVE");
+      expect(context.proceduralCraft).toContain("JOHN OLIVER LIKE");
       expect(context.promptBlock).toContain("No prior user interaction history");
       expect(context.semanticGrounding).toBeUndefined();
     });
@@ -662,7 +662,7 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
       expect(unknownSkill.id).toBe("investigative-desk");
 
       const formatted = formatProceduralMemory(undefined);
-      expect(formatted).toContain("=== PROCEDURAL CRAFT MEMORY (INVESTIGATIVE DESK DEEP-DIVE) ===");
+      expect(formatted).toContain("=== PROCEDURAL CRAFT MEMORY (JOHN OLIVER LIKE) ===");
     });
   });
 

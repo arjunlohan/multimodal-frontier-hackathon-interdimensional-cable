@@ -406,8 +406,8 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       expect(sanitized).not.toContain("Joe Rogan Experience");
       expect(sanitized).not.toContain("clone the exact voice of");
       expect(sanitized).toContain("premium cable broadcast");
-      expect(sanitized).toContain("Investigative Desk Deep-Dive");
-      expect(sanitized).toContain("The Speculative Frontier");
+      expect(sanitized).toContain("investigative comedy deep-dive");
+      expect(sanitized).toContain("the speculative podcast studio");
       expect(sanitized).toContain("reproduce the rhetorical cadence and comedic style of");
 
       // 4. Parody disclaimer
@@ -1037,7 +1037,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       // 3. Disclaimer generation
       const disclaimer = generateSatiricalDisclaimer(skill, "Late Night Variety Highlights");
       expect(disclaimer).toContain("original satirical parody");
-      expect(disclaimer).toContain("High-Energy Variety Monologue");
+      expect(disclaimer).toContain("Jimmy Fallon Like");
     });
   });
 
@@ -1121,7 +1121,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       }
     });
 
-    it("scenario 3: Joe Rogan 'The Speculative Frontier' long-form wonder podcast ('Ancient Microscopic Civilizations')", async () => {
+    it("scenario 3: Joe Rogan 'Joe Rogan Like' long-form wonder podcast ('Ancient Microscopic Civilizations')", async () => {
       const topic = "Ancient Microscopic Civilizations in Antarctic Ice";
       const skill = speculativePodcastSkill;
 
@@ -1156,7 +1156,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       expect(format.durationSeconds).toBe(180);
     });
 
-    it("scenario 4: Tim Dillon 'Apocalyptic Suburban Report' satirical podcast with live Q&A banter", async () => {
+    it("scenario 4: Tim Dillon 'Tim Dillon Like' satirical podcast with live Q&A banter", async () => {
       const topic = "Suburban HOA Feuds and Global Geopolitics";
       const skill = apocalypticSatireSkill;
 
@@ -1205,7 +1205,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
 
       expect(cognitiveContext.workingMemory).toContain(userQuestion);
       expect(cognitiveContext.workingMemory).toContain(hostRant);
-      expect(cognitiveContext.proceduralCraft).toContain("APOCALYPTIC SUBURBAN REPORT");
+      expect(cognitiveContext.proceduralCraft).toContain("TIM DILLON LIKE");
     });
   });
 });

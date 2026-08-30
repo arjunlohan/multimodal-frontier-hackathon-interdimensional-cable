@@ -356,7 +356,7 @@ describe("two-Archetype Modular Show SKILL Engine", () => {
       expect(resolveSkillForShow("podcast").archetype).toBe("conversational_podcast");
       expect(resolveSkillForShow("desk").archetype).toBe("writers_room_desk");
       expect(resolveSkillForShow("Colin Jest").id).toBe("satirical-news-desk");
-      expect(resolveSkillForShow("Suburban Report").id).toBe("podcast-apocalyptic-satire");
+      expect(resolveSkillForShow("Tim Dillon Like").id).toBe("podcast-apocalyptic-satire");
       expect(resolveSkillForShow("random-nonexistent-query")).toBeDefined();
     });
 

@@ -268,27 +268,27 @@ describe("m1 empirical challenger: stress-testing Show SKILL engine", () => {
         },
         {
           expectedExclusion: "Last Week Tonight",
-          expectedInclusion: "Investigative Desk Deep-Dive",
+          expectedInclusion: "investigative comedy deep-dive",
           input: "Episode of Last Week Tonight covering tech monopolies.",
         },
         {
           expectedExclusion: "A Closer Look",
-          expectedInclusion: "Surgical Political Dissection",
+          expectedInclusion: "surgical satirical breakdown",
           input: "A segment of A Closer Look examining the budget.",
         },
         {
           expectedExclusion: "Weekend Update",
-          expectedInclusion: "Satirical Dual-Anchor News Desk",
+          expectedInclusion: "dual-anchor satirical news desk",
           input: "Weekend Update joke swap special edition.",
         },
         {
           expectedExclusion: "Joe Rogan Experience",
-          expectedInclusion: "The Speculative Frontier",
+          expectedInclusion: "the speculative podcast studio",
           input: "Interview on Joe Rogan Experience or JRE podcast.",
         },
         {
           expectedExclusion: "Tim Dillon Show",
-          expectedInclusion: "Apocalyptic Suburban Report",
+          expectedInclusion: "the satirical apocalyptic podcast",
           input: "A new Tim Dillon Show rant on fake businesses.",
         },
       ];

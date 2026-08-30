@@ -33,6 +33,11 @@ export interface PlaybackAsset {
 export const mux = new Mux({
   tokenId: env.MUX_TOKEN_ID,
   tokenSecret: env.MUX_TOKEN_SECRET,
+  // The SDK otherwise falls back to a bundled node-fetch polyfill whose Request
+  // constructor calls the deprecated url.parse(), which surfaces a DEP0169
+  // warning in the Next dev overlay on every page that reads Mux. Node's own
+  // fetch is WHATWG-compliant and removes it.
+  fetch: globalThis.fetch,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

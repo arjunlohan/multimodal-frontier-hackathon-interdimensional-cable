@@ -4,7 +4,7 @@ import type { ShowSkill } from "./types";
 export const satiricalNewsSkill: ShowSkill = {
   id: "satirical-news-desk",
   slug: "satirical-news",
-  name: "Satirical Dual-Anchor News Desk",
+  name: "SNL Like",
   archetype: "writers_room_desk",
   showType: "conversation",
   description:

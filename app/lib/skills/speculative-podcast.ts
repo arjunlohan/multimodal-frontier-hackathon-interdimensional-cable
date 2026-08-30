@@ -3,7 +3,7 @@ import type { ShowSkill } from "./types";
 export const speculativePodcastSkill: ShowSkill = {
   id: "podcast-speculative-wonder",
   slug: "speculative-podcast",
-  name: "The Speculative Frontier",
+  name: "Joe Rogan Like",
   archetype: "conversational_podcast",
   showType: "conversation",
   description:

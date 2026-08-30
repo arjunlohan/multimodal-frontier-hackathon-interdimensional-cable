@@ -11,7 +11,7 @@ import type { ShowSkill } from "./types";
 export const venturePanelSkill: ShowSkill = {
   id: "panel-venture-roundtable",
   slug: "venture-panel",
-  name: "The Capital Allocators Roundtable",
+  name: "All In Like",
   archetype: "conversational_podcast",
   showType: "conversation",
   description:

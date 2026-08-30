@@ -4,7 +4,7 @@ import type { ShowSkill } from "./types";
 export const varietyMonologueSkill: ShowSkill = {
   id: "variety-monologue",
   slug: "variety-monologue",
-  name: "High-Energy Variety Monologue",
+  name: "Jimmy Fallon Like",
   archetype: "writers_room_desk",
   showType: "monologue",
   description:

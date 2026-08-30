@@ -144,12 +144,12 @@ const NETWORK_TRADEMARK_REPLACEMENTS: Array<{ regex: RegExp; replacement: string
   { regex: /\bShowtime\b/gi, replacement: "premium cable studio" },
   { regex: /\bNetflix\b/gi, replacement: "streaming television platform" },
   { regex: /\bSpotify\b/gi, replacement: "broadcast audio streaming platform" },
-  { regex: /\bLast Week Tonight\b/gi, replacement: "Investigative Desk Deep-Dive" },
-  { regex: /\bA Closer Look\b/gi, replacement: "Surgical Political Dissection" },
-  { regex: /\bWeekend Update\b/gi, replacement: "Satirical Dual-Anchor News Desk" },
-  { regex: /\bTonight Show\b/gi, replacement: "Late-Night Variety Monologue" },
-  { regex: /\bJoe Rogan Experience\b|\bJRE\b/gi, replacement: "The Speculative Frontier" },
-  { regex: /\bTim Dillon Show\b/gi, replacement: "Apocalyptic Suburban Report" },
+  { regex: /\bLast Week Tonight\b/gi, replacement: "investigative comedy deep-dive" },
+  { regex: /\bA Closer Look\b/gi, replacement: "surgical satirical breakdown" },
+  { regex: /\bWeekend Update\b/gi, replacement: "dual-anchor satirical news desk" },
+  { regex: /\bTonight Show\b/gi, replacement: "late-night variety monologue" },
+  { regex: /\bJoe Rogan Experience\b|\bJRE\b/gi, replacement: "the speculative podcast studio" },
+  { regex: /\bTim Dillon Show\b/gi, replacement: "the satirical apocalyptic podcast" },
 ];
 
 /**

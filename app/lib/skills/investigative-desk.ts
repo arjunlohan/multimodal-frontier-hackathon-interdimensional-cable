@@ -4,7 +4,7 @@ import type { ShowSkill } from "./types";
 export const investigativeDeskSkill: ShowSkill = {
   id: "investigative-desk",
   slug: "investigative-desk",
-  name: "Investigative Desk Deep-Dive",
+  name: "John Oliver Like",
   archetype: "writers_room_desk",
   showType: "monologue",
   description:

@@ -3,7 +3,7 @@ import type { ShowSkill } from "./types";
 export const apocalypticSatireSkill: ShowSkill = {
   id: "podcast-apocalyptic-satire",
   slug: "apocalyptic-satire",
-  name: "Apocalyptic Suburban Report",
+  name: "Tim Dillon Like",
   archetype: "conversational_podcast",
   showType: "monologue",
   description:
