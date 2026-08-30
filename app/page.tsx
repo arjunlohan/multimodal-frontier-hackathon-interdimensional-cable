@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
+import { CloudFootprint, HowItRuns } from "@/app/components/how-it-runs";
 
 export default function Home() {
   return (
@@ -34,7 +35,7 @@ export default function Home() {
 
                 <p className="max-w-2xl text-lg leading-relaxed text-foreground-muted md:text-xl">
                   Pick a late-night talk show style like John Oliver, Seth Meyers, or SNL Weekend Update.
-                  Give it any topic. Watch an AI-generated episode come to life in seconds.
+                  Give it any topic. An agent researches it, writes it, casts the voices, and produces the episode unattended.
                 </p>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -50,6 +51,34 @@ export default function Home() {
                   >
                     Browse shows
                   </Link>
+                </div>
+
+                {/* Every service named here executes on the show path. */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t-[3px] border-border pt-6">
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
+                    style={{ fontFamily: "var(--font-space-mono)" }}
+                  >
+                    Running on
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <img src="/google/vertex-ai.svg" alt="" aria-hidden="true" className="h-6 w-6" />
+                    <span className="text-sm font-bold" style={{ fontFamily: "var(--font-space-mono)" }}>
+                      Vertex AI
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <img src="/google/cloud-sql.svg" alt="" aria-hidden="true" className="h-6 w-6" />
+                    <span className="text-sm font-bold" style={{ fontFamily: "var(--font-space-mono)" }}>
+                      Cloud SQL
+                    </span>
+                  </span>
+                  <span
+                    className="text-sm font-bold text-foreground-muted"
+                    style={{ fontFamily: "var(--font-space-mono)" }}
+                  >
+                    Gemini 3.7 Flash · Veo 3.1 · Gemini TTS
+                  </span>
                 </div>
               </div>
             </div>
@@ -111,6 +140,10 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          <HowItRuns />
+
+          <CloudFootprint />
 
           {/* Show Templates Preview */}
           <section>
