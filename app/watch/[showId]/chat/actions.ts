@@ -6,7 +6,7 @@ import { Pool } from "pg";
 
 import { env } from "@/app/lib/env";
 import { generateChatText } from "@/app/lib/genai";
-import { buildPersonalizedPromptContext, getMemorySummary, updateMemoryFromInteraction } from "@/app/lib/memory-bank";
+import { buildPersonalizedPromptContext, getMemorySummary, getUserMemories, getUserTangents, updateMemoryFromInteraction } from "@/app/lib/memory-bank";
 import { generateSingleVoiceClip } from "@/app/lib/tts";
 import * as schema from "@/db/schema";
 import type { ChatMessage, ShowTangent } from "@/db/schema";
@@ -28,6 +28,40 @@ export async function getChatMessagesAction(showId: string): Promise<ChatMessage
   } catch (error) {
     console.error("Failed to fetch chat messages:", error);
     return [];
+  }
+}
+
+/**
+ * A one-line account of what the memory bank has learned from.
+ *
+ * The profile card showed what the agent knows but never where it came from,
+ * which made a genuinely multi-source learning loop look like a static list.
+ */
+export async function getMemorySourcesAction(userId: string = "default_user") {
+  try {
+    const [memories, tangents] = await Promise.all([
+      getUserMemories(userId),
+      getUserTangents(userId, 50),
+    ]);
+
+    const byType = memories.reduce<Record<string, number>>((acc, m) => {
+      acc[m.memoryType] = (acc[m.memoryType] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      topicsRequested: byType.interest_topic ?? 0,
+      conceptsTracked: byType.concept_mastery ?? 0,
+      questionPatterns: byType.question_pattern ?? 0,
+      humorSignals: byType.humor_preference ?? 0,
+      preferences: byType.custom_note ?? 0,
+      tangents: tangents.length,
+      // Distinct shows that contributed at least one memory.
+      showsContributing: new Set(memories.map(m => m.sourceShowId).filter(Boolean)).size,
+    };
+  } catch (error) {
+    console.error("Failed to fetch memory sources:", error);
+    return null;
   }
 }
 

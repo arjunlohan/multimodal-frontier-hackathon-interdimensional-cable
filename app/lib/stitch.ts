@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import type { Buffer } from "node:buffer";
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -23,6 +25,46 @@ const FFMPEG = (() => {
     return "ffmpeg";
   }
 })();
+
+/**
+ * Duration of a PCM WAV buffer, read from its header.
+ *
+ * Parsed directly rather than shelled out to ffprobe: ffmpeg-static ships only
+ * ffmpeg, and the header already carries everything needed.
+ *
+ * Returns null when the buffer is not a WAV this can read, so callers can fall
+ * back rather than record a wrong duration.
+ */
+export function wavDurationSeconds(buffer: Buffer): number | null {
+  // "RIFF" .... "WAVE"
+  if (buffer.length < 44 || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
+    return null;
+  }
+
+  let byteRate = 0;
+  let offset = 12;
+
+  // Walk the chunk list: fmt carries the byte rate, data carries the payload size.
+  while (offset + 8 <= buffer.length) {
+    const id = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+
+    if (id === "fmt " && offset + 16 <= buffer.length) {
+      byteRate = buffer.readUInt32LE(offset + 16);
+    } else if (id === "data") {
+      if (byteRate <= 0) {
+        return null;
+      }
+      // A streamed WAV can declare size 0; fall back to what is actually present.
+      const dataSize = size > 0 ? Math.min(size, buffer.length - offset - 8) : buffer.length - offset - 8;
+      return dataSize / byteRate;
+    }
+
+    offset += 8 + size + (size % 2); // chunks are word-aligned
+  }
+
+  return null;
+}
 
 /**
  * Concatenates video clips into a single output file using ffmpeg.

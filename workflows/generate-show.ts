@@ -248,8 +248,10 @@ async function runWithShowKeys<T>(showId: string, fn: () => Promise<T>): Promise
   return keys ? withUserApiKeys(keys, fn) : fn();
 }
 
-/** Step boundary. Re-establishes the run's API-key context, which does not
- *  survive across separate step invocations, then delegates. */
+/**
+ * Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates.
+ */
 async function researchStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
@@ -357,8 +359,10 @@ async function researchStepImpl(
 // Step 2: Script
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Step boundary. Re-establishes the run's API-key context, which does not
- *  survive across separate step invocations, then delegates. */
+/**
+ * Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates.
+ */
 async function scriptStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
@@ -424,8 +428,10 @@ async function scriptStepImpl(
 // Audio Podcast Synthesis (Long-form up to 5 min with Gemini 3.1 Flash TTS)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Step boundary. Re-establishes the run's API-key context, which does not
- *  survive across separate step invocations, then delegates. */
+/**
+ * Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates.
+ */
 async function audioPodcastSynthesisStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
@@ -481,9 +487,47 @@ async function audioPodcastSynthesisStepImpl(
 
   console.log(`[workflow:podcast] Audio podcast written to: ${audioPath} (${wavBuffer.length} bytes)`);
 
+  // The script assigns each segment a uniform planned slot (8s, 8s, ...), but the
+  // whole podcast is synthesized in ONE TTS call, so real speech never lands on
+  // those boundaries. Left uncorrected the error accumulates and the transcript
+  // highlight runs ahead of the audio by several segments by the end.
+  //
+  // Re-derive the boundaries from the audio that actually exists, distributing
+  // it across segments by word count, which tracks speaking time closely.
+  const { wavDurationSeconds } = await import("@/app/lib/stitch");
+  const actualDuration = wavDurationSeconds(wavBuffer);
+
+  let timedSegments = segments;
+  if (actualDuration && actualDuration > 0) {
+    const weights = segments.map(s => Math.max(1, (s.text ?? "").trim().split(/\s+/).filter(Boolean).length));
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+    let cursor = 0;
+    timedSegments = segments.map((seg, i) => {
+      const share = (weights[i] / totalWeight) * actualDuration;
+      const startTimeSeconds = cursor;
+      // Pin the final boundary to the true end so rounding cannot leave a gap.
+      const endTimeSeconds = i === segments.length - 1 ? actualDuration : cursor + share;
+      cursor = endTimeSeconds;
+      return {
+        ...seg,
+        startTimeSeconds: Number(startTimeSeconds.toFixed(3)),
+        endTimeSeconds: Number(endTimeSeconds.toFixed(3)),
+        durationSeconds: Number((endTimeSeconds - startTimeSeconds).toFixed(3)),
+      };
+    });
+
+    const planned = segments.reduce((a, s) => a + (s.durationSeconds ?? 0), 0);
+    console.log(
+      `[workflow:podcast] Retimed transcript against real audio: planned ${planned.toFixed(1)}s -> actual ${actualDuration.toFixed(1)}s`,
+    );
+  } else {
+    console.warn("[workflow:podcast] Could not read WAV duration; keeping planned segment timings.");
+  }
+
   // Store path for upload step
   await db.update(schema.generatedShows)
-    .set({ localRenderPath: audioPath })
+    .set({ localRenderPath: audioPath, transcriptSegments: timedSegments })
     .where(eq(schema.generatedShows.id, showId));
 
   await writeToStream(progress, { type: "completed", step: "generate-clips" });
@@ -503,8 +547,10 @@ async function audioPodcastSynthesisStepImpl(
  *   4. Employs multi-turn scene extension by propagating previousInteractionId across turns
  * When OFF: generates clips with reference images and interactionId scene extensions.
  */
-/** Step boundary. Re-establishes the run's API-key context, which does not
- *  survive across separate step invocations, then delegates. */
+/**
+ * Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates.
+ */
 async function frameChainAndGenerateClipsStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
@@ -517,7 +563,6 @@ async function frameChainAndGenerateClipsStepImpl(
   progress: WritableStream<ProgressEvent>,
   showId: string,
 ): Promise<void> {
-
   const { eq } = await import("drizzle-orm");
   const { db, schema } = await getDb();
   const { generateVideoClip, generateVideoClipInterpolated } = await import("@/app/lib/veo");

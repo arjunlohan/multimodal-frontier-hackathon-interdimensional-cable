@@ -11,6 +11,7 @@ import {
   requiresUserApiKeys,
 } from "@/app/lib/api-keys";
 import { env } from "@/app/lib/env";
+import { recordMemorySignal, topicToKey } from "@/app/lib/memory-bank";
 import * as schema from "@/db/schema";
 import type { ShowTemplate } from "@/db/schema";
 
@@ -115,6 +116,21 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
         userId: "default_user",
       })
       .returning({ id: schema.generatedShows.id });
+
+    // Learn from what was asked for. This is unambiguous signal handed to us
+    // directly, so it needs no extraction call.
+    void recordMemorySignal("default_user", {
+      memoryType: "interest_topic",
+      key: topicToKey(formData.topic),
+      value: `Requested a show about "${formData.topic.trim()}"`,
+      sourceShowId: show.id,
+    });
+    void recordMemorySignal("default_user", {
+      memoryType: "custom_note",
+      key: `format-${formData.durationSeconds > 40 ? "audio" : "video"}`,
+      value: `Prefers ${formData.durationSeconds > 40 ? "long-form audio" : "short video"} episodes (${formData.durationSeconds}s), ${formData.familiarity} level`,
+      sourceShowId: show.id,
+    });
 
     // Start the generation workflow
     try {

@@ -9,6 +9,7 @@ import { VideoPlayer } from "@/app/media/[slug]/player/ui";
 import type { GeneratedShow, ShowTemplate } from "@/db/schema";
 
 import { ChatPanel } from "./chat/chat-panel";
+import { ProvenancePanel } from "./provenance-panel";
 import { ShowTranscript } from "./show-transcript";
 import { DubbingPanel } from "./tts-panel";
 
@@ -150,6 +151,16 @@ export function WatchContent({ show, template }: WatchContentProps) {
           )}
 
           {/* Social Clips — hidden for now */}
+
+          {/* What actually produced this episode */}
+          <ProvenancePanel
+            researchContext={show.researchContext}
+            segmentCount={segments.length}
+            durationSeconds={show.durationSeconds ?? 16}
+            isAudio={isAudio}
+            hasMux={Boolean(show.muxPlaybackId)}
+            language={show.language ?? "en"}
+          />
 
           {/* Show Details */}
           <div className="card-flat p-4">

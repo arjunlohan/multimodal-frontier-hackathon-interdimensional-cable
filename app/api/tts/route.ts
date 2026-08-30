@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { recordMemorySignal } from "@/app/lib/memory-bank";
 import { generateTts } from "@/app/lib/tts";
 import type { TtsHost } from "@/app/lib/tts";
 
@@ -21,6 +22,16 @@ export async function POST(request: Request) {
     }
 
     const wav = await generateTts(body.transcript, body.hosts, body.targetLang);
+
+    // Dubbing into a language is a clear preference signal, and the only place
+    // the memory bank can learn it.
+    if (body.targetLang && body.targetLang !== "en") {
+      void recordMemorySignal("default_user", {
+        memoryType: "custom_note",
+        key: `language-${body.targetLang}`,
+        value: `Dubs episodes into ${body.targetLang.toUpperCase()}`,
+      });
+    }
 
     return new Response(new Uint8Array(wav), {
       status: 200,

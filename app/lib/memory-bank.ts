@@ -512,6 +512,79 @@ export async function buildPersonalizedPromptContext(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Deterministic signals
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Records something the user did, without an LLM round-trip.
+ *
+ * `updateMemoryFromInteraction` is the right tool for free-form conversation,
+ * where the insight has to be inferred. But plenty of signal is already
+ * unambiguous — the topic they asked for, the format they picked, the language
+ * they dubbed into — and paying for an extraction call to learn a fact we were
+ * handed is wasteful and slower.
+ *
+ * Reinforces on repeat: asking for three ocean shows should register more
+ * strongly than asking for one.
+ */
+export async function recordMemorySignal(
+  userId: string,
+  signal: {
+    memoryType: MemoryType;
+    key: string;
+    value: string;
+    confidence?: number;
+    sourceShowId?: string;
+  },
+): Promise<void> {
+  try {
+    const existing = await db
+      .select()
+      .from(schema.userMemories)
+      .where(eq(schema.userMemories.userId, userId));
+
+    const match = existing.find(e => e.key === signal.key && e.memoryType === signal.memoryType);
+
+    if (match) {
+      await db
+        .update(schema.userMemories)
+        .set({
+          value: signal.value,
+          confidence: calculateBoostedConfidence(match.confidence ?? 0.7),
+          sourceShowId: signal.sourceShowId ?? match.sourceShowId ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.userMemories.id, match.id));
+    } else {
+      await db.insert(schema.userMemories).values({
+        userId,
+        memoryType: signal.memoryType,
+        key: signal.key,
+        value: signal.value,
+        confidence: signal.confidence ?? 0.6,
+        sourceShowId: signal.sourceShowId ?? null,
+      });
+    }
+  } catch (error) {
+    // Memory is an enhancement; never let it break the action that triggered it.
+    console.error("[memory-bank] Signal capture failed:", error);
+  }
+}
+
+/** Turns a topic into a stable key: "Why coral reefs..." -> "why-coral-reefs". */
+export function topicToKey(topic: string): string {
+  return topic
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(w => w.length > 3)
+    .slice(0, 3)
+    .join("-") || "general";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Autonomous Memory Extraction (The Learning Engine)
 // ─────────────────────────────────────────────────────────────────────────────
 
