@@ -94,7 +94,7 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
       />
 
       {/* Step Progress */}
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-xl">
         <div className="card-flat p-5">
           <div
             className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
@@ -102,6 +102,9 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
           >
             Pipeline Progress
           </div>
+          <p className="mb-4 text-xs leading-relaxed text-foreground-muted">
+            Each stage is a checkpointed step. The engine running it is named beside it.
+          </p>
 
           <div className="space-y-3">
             {visibleSteps.map((step) => {
@@ -109,7 +112,7 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
               const isCurrent = currentStep === step.id;
 
               return (
-                <div key={step.id} className="flex items-center gap-3">
+                <div key={step.id} className="flex items-start gap-3">
                   {/* Icon */}
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center border-2 border-border">
                     {isCompleted ?
@@ -127,14 +130,38 @@ export function GenerationProgress({ show, template }: GenerationProgressProps) 
                           )}
                   </div>
 
-                  {/* Label */}
+                  {/* Label + the engine actually doing the work */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span
+                      className={`text-xs font-bold uppercase tracking-[0.1em] ${
+                        isCompleted ? "text-foreground" : isCurrent ? "text-accent" : "text-foreground-muted"
+                      }`}
+                      style={{ fontFamily: "var(--font-space-mono)" }}
+                    >
+                      {step.label}
+                    </span>
+                    <span
+                      className="text-[10px] leading-tight text-foreground-muted"
+                      style={{ fontFamily: "var(--font-space-mono)" }}
+                    >
+                      {step.engine.model}
+                    </span>
+                  </div>
+
+                  {/* Service chip. Dimmed until the step is reached, so the
+                      active engine is obvious at a glance. */}
                   <span
-                    className={`text-xs font-bold uppercase tracking-[0.1em] ${
-                      isCompleted ? "text-foreground" : isCurrent ? "text-accent" : "text-foreground-muted"
+                    className={`inline-flex shrink-0 items-center gap-1.5 border-2 border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-opacity ${
+                      isCompleted || isCurrent ? "opacity-100" : "opacity-40"
                     }`}
-                    style={{ fontFamily: "var(--font-space-mono)" }}
+                    style={{ fontFamily: "var(--font-space-mono)", background: "var(--surface-elevated)" }}
                   >
-                    {step.label}
+                    {step.engine.icon ?
+                        (
+                          <img src={step.engine.icon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+                        ) :
+                      null}
+                    {step.engine.service}
                   </span>
                 </div>
               );
