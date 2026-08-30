@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -47,10 +48,14 @@ export async function stitchClips(
     console.log("[stitch] Attempting lossless concat to:", output);
     await execFileAsync("ffmpeg", [
       "-y",
-      "-f", "concat",
-      "-safe", "0",
-      "-i", listPath,
-      "-c", "copy",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      listPath,
+      "-c",
+      "copy",
       output,
     ], { timeout: 120_000 });
   } catch (concatErr) {
@@ -58,14 +63,24 @@ export async function stitchClips(
     console.warn("[stitch] Lossless concat failed, falling back to re-encode:", concatErr);
     await execFileAsync("ffmpeg", [
       "-y",
-      "-f", "concat",
-      "-safe", "0",
-      "-i", listPath,
-      "-c:v", "libx264",
-      "-preset", "fast",
-      "-crf", "23",
-      "-c:a", "aac",
-      "-b:a", "128k",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      listPath,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "23",
+      "-c:a",
+      "aac",
+      "-ar",
+      "48000",
+      "-b:a",
+      "128k",
       output,
     ], { timeout: 300_000 });
   }
@@ -105,10 +120,14 @@ export async function extractFrame(
   console.log("[stitch] Extracting frame at", timeSeconds, "s from:", videoPath);
   await execFileAsync("ffmpeg", [
     "-y",
-    "-ss", String(timeSeconds),
-    "-i", videoPath,
-    "-frames:v", "1",
-    "-f", "image2",
+    "-ss",
+    String(timeSeconds),
+    "-i",
+    videoPath,
+    "-frames:v",
+    "1",
+    "-f",
+    "image2",
     outputPath,
   ], { timeout: 30_000 });
 
@@ -126,7 +145,8 @@ export async function extractFrame(
 export function cleanupTempFiles(paths: string[]): void {
   for (const p of paths) {
     try {
-      if (fs.existsSync(p)) fs.unlinkSync(p);
+      if (fs.existsSync(p))
+        fs.unlinkSync(p);
     } catch {
       // ignore
     }

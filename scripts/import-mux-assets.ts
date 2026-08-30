@@ -47,8 +47,6 @@ const mux = new Mux({
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function importMuxAssets() {
-  // Dynamic import for ESM-only package
-  const { generateVideoEmbeddings } = await import("@mux/ai/workflows");
   console.log("Fetching Mux assets...");
 
   // Fetch all assets from Mux (paginated)
@@ -130,59 +128,94 @@ async function importMuxAssets() {
 
       console.log(`✓ Video record saved (ID: ${video.id})`);
 
-      // Generate embeddings using @mux/ai
-      console.log(`Generating embeddings for asset ${asset.id}...`);
+      // Generate embeddings using Google GenAI text-embedding-004
+      console.log(`Generating Google embeddings for asset ${asset.id}...`);
 
-      const result = await generateVideoEmbeddings(asset.id, {
-        provider: "openai",
-        languageCode,
-        chunkingStrategy: {
-          type: "vtt",
-          maxTokens: 500,
-          overlapCues: 2,
-        },
-      });
-
-      console.log(`✓ Generated ${result.chunks.length} chunks`);
-
-      // Log chunk info
-      if (result.chunks.length > 0) {
-        const firstChunk = result.chunks[0] as { metadata: { startTime?: number; endTime?: number } };
-        console.log(`  Chunks: ${result.chunks.length}, Time range: ${firstChunk.metadata.startTime ?? 0}s - ${firstChunk.metadata.endTime ?? "?"}s`);
+      const { GoogleGenAI } = await import("@google/genai");
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY required");
       }
+      const client = new GoogleGenAI({ apiKey });
+
+      // Parse VTT into chunks if available
+      interface ChunkData {
+        text: string;
+        startTime?: number;
+        endTime?: number;
+      }
+      const rawChunks: ChunkData[] = [];
+
+      if (transcriptVtt) {
+        // Simple VTT cue parser
+        const cueBlocks = transcriptVtt.split(/\n\s*\n/);
+        for (const block of cueBlocks) {
+          const lines = block.trim().split("\n");
+          const timeLine = lines.find(l => l.includes("-->"));
+          if (timeLine) {
+            const [startStr, endStr] = timeLine.split("-->").map(s => s.trim());
+            const parseVttTime = (t: string) => {
+              const parts = t.split(":");
+              if (parts.length === 3) {
+                return Number.parseFloat(parts[0]) * 3600 + Number.parseFloat(parts[1]) * 60 + Number.parseFloat(parts[2]);
+              }
+              if (parts.length === 2) {
+                return Number.parseFloat(parts[0]) * 60 + Number.parseFloat(parts[1]);
+              }
+              return 0;
+            };
+            const textLines = lines.filter(l => !l.includes("-->") && !/^\d+$/.test(l.trim())).join(" ");
+            if (textLines.trim()) {
+              rawChunks.push({
+                text: textLines.trim(),
+                startTime: parseVttTime(startStr),
+                endTime: parseVttTime(endStr),
+              });
+            }
+          }
+        }
+      }
+
+      // If no transcript, use title and summary as a chunk
+      if (rawChunks.length === 0) {
+        rawChunks.push({
+          text: `${(asset.meta as { title?: string })?.title || "Video"} - ${asset.id}`,
+          startTime: 0,
+          endTime: asset.duration ? Math.round(asset.duration) : 60,
+        });
+      }
+
+      console.log(`✓ Prepared ${rawChunks.length} chunks for embedding`);
 
       // Delete existing chunks for this video (in case of re-import)
       await db
         .delete(schema.videoChunks)
         .where(eq(schema.videoChunks.videoId, video.id));
 
-      // Insert all chunks with embeddings and metadata
-      if (result.chunks.length > 0) {
-        for (let i = 0; i < result.chunks.length; i++) {
-          const chunk = result.chunks[i] as {
-            chunkId: string;
-            embedding: number[];
-            metadata: { startTime?: number; endTime?: number; tokenCount: number };
-          };
-
-          // Convert embedding array to pgvector format: '[0.1,0.2,...]'
-          const embeddingStr = `[${chunk.embedding.join(",")}]`;
-
-          // Use raw SQL with raw embedding string for proper pgvector format
+      // Embed each chunk with Google text-embedding-004
+      for (let i = 0; i < rawChunks.length; i++) {
+        const chunk = rawChunks[i];
+        const embRes = await client.models.embedContent({
+          model: "text-embedding-004",
+          contents: [{ parts: [{ text: chunk.text }] }],
+        });
+        const values = embRes.embeddings?.[0]?.values;
+        if (values && values.length > 0) {
+          const embeddingStr = `[${values.join(",")}]`;
           await pool.query(
             `INSERT INTO video_chunks (video_id, chunk_index, start_time, end_time, embedding)
              VALUES ($1, $2, $3, $4, $5::vector)`,
             [
               video.id,
               i,
-              chunk.metadata.startTime ?? null,
-              chunk.metadata.endTime ?? null,
+              chunk.startTime ?? null,
+              chunk.endTime ?? null,
               embeddingStr,
             ],
           );
         }
-        console.log(`✓ Saved ${result.chunks.length} chunks with embeddings`);
       }
+      console.log(`✓ Saved ${rawChunks.length} chunks with Google text-embedding-004 embeddings`);
     } catch (error) {
       console.error(`✗ Error processing asset ${asset.id}:`, error);
     }

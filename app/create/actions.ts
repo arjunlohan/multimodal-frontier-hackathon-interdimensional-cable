@@ -6,7 +6,6 @@ import { Pool } from "pg";
 
 import { env } from "@/app/lib/env";
 import * as schema from "@/db/schema";
-
 import type { ShowTemplate } from "@/db/schema";
 
 const pool = new Pool({ connectionString: env.DATABASE_URL });
@@ -63,7 +62,7 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
     return { error: "Invalid topic type." };
   }
 
-  const validDurations = [16, 24, 32];
+  const validDurations = [8, 16, 24, 32, 40, 60, 120, 180, 240, 300];
   if (!validDurations.includes(formData.durationSeconds)) {
     return { error: "Invalid duration." };
   }
@@ -89,7 +88,7 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
 
     // Start the generation workflow
     try {
-      const workflowUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/workflows/generate-show`;
+      const workflowUrl = `${env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/workflows/generate-show`;
       console.log("[createShowAction] Starting workflow at:", workflowUrl, "showId:", show.id);
 
       const res = await fetch(workflowUrl, {

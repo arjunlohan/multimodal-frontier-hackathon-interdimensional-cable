@@ -36,6 +36,13 @@
       "when": 1765828552061,
       "tag": "0004_frame_chaining",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765828552062,
+      "tag": "0005_memory_bank_and_tangents",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,10 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console, node/no-process-env */
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-const GEMINI_TEXT_MODEL = "gemini-3-flash-preview";
-const VEO_VIDEO_MODEL = "veo-3.1-generate-preview";
+const GEMINI_TEXT_MODEL = "gemini-3.7-flash";
+const OMNI_VIDEO_MODEL = "gemini-omni-1.1-flash";
 
 function getApiKey(): string | undefined {
   return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -29,17 +29,17 @@ async function testGeminiText(): Promise<boolean> {
   const start = Date.now();
   try {
     const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: [{ role: "user", parts: [{ text: "Reply with only the word PONG" }] }],
       config: { maxOutputTokens: 64 },
+      contents: [{ parts: [{ text: "Reply with only the word PONG" }], role: "user" }],
+      model: GEMINI_TEXT_MODEL,
     });
 
     const text = response.candidates?.[0]?.content?.parts
       ?.filter((p: { text?: string }) => p.text)
       .map((p: { text?: string }) => p.text)
       .join("")
-      .trim()
-      || response.text?.trim();
+      .trim() ||
+      response.text?.trim();
     const elapsed = Date.now() - start;
     if (text) {
       console.log(`  PASS  Response: "${text}" (${elapsed}ms)`);
@@ -55,8 +55,8 @@ async function testGeminiText(): Promise<boolean> {
   }
 }
 
-async function testVeoVideo(): Promise<boolean> {
-  console.log("\n── Step 3/5: Veo Video (%s) ───────────────────────", VEO_VIDEO_MODEL);
+async function testOmniVideo(): Promise<boolean> {
+  console.log("\n── Step 3/5: Gemini Omni 1.1 Flash Video (%s) ──────────", OMNI_VIDEO_MODEL);
   const { GoogleGenAI } = await import("@google/genai");
   const client = new GoogleGenAI({ apiKey: getApiKey()! });
 
@@ -64,13 +64,14 @@ async function testVeoVideo(): Promise<boolean> {
   try {
     console.log("  ...  Requesting video generation (this may take 1-3 minutes)...");
     let operation = await client.models.generateVideos({
-      model: VEO_VIDEO_MODEL,
-      prompt: "A solid blue background with a small white circle in the center",
       config: {
         aspectRatio: "16:9",
-        numberOfVideos: 1,
         durationSeconds: 8,
+        numberOfVideos: 1,
+        resolution: "720p",
       },
+      model: OMNI_VIDEO_MODEL,
+      prompt: "A solid blue background with a small white circle in the center",
     });
 
     const elapsed = Date.now() - start;
@@ -106,7 +107,7 @@ async function testVeoVideo(): Promise<boolean> {
     const msg = err instanceof Error ? err.message : String(err);
 
     if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
-      console.log(`  FAIL  Quota exceeded — your API key does not have Veo quota available (${elapsed}ms)`);
+      console.log(`  FAIL  Quota exceeded — your API key does not have Gemini Omni quota available (${elapsed}ms)`);
       console.log("        Check: https://ai.dev/rate-limit");
     } else {
       console.log(`  FAIL  ${msg} (${elapsed}ms)`);
@@ -115,8 +116,8 @@ async function testVeoVideo(): Promise<boolean> {
   }
 }
 
-async function testVeoWithReferenceImage(): Promise<boolean> {
-  console.log("\n── Step 4/5: Veo + Reference Image ────────────────────");
+async function testOmniWithReferenceImage(): Promise<boolean> {
+  console.log("\n── Step 4/5: Gemini Omni + Reference Image (<IMAGE_REF_0>) ────");
   const fs = await import("node:fs");
   const path = await import("node:path");
   const { GoogleGenAI, VideoGenerationReferenceType } = await import("@google/genai");
@@ -136,17 +137,19 @@ async function testVeoWithReferenceImage(): Promise<boolean> {
   try {
     console.log("  ...  Requesting video generation with reference image...");
     let operation = await client.models.generateVideos({
-      model: VEO_VIDEO_MODEL,
-      prompt: "A late-night talk show host sitting behind a desk, delivering a monologue to camera",
       config: {
         aspectRatio: "16:9",
-        numberOfVideos: 1,
         durationSeconds: 8,
+        numberOfVideos: 1,
+        personGeneration: "allow_adult",
         referenceImages: [{
           image: { imageBytes, mimeType: "image/png" },
           referenceType: VideoGenerationReferenceType.ASSET,
         }],
+        resolution: "1080p",
       },
+      model: OMNI_VIDEO_MODEL,
+      prompt: "A late-night talk show host sitting behind a desk, delivering a monologue to camera <IMAGE_REF_0>",
     });
 
     const elapsed = Date.now() - start;
@@ -199,12 +202,12 @@ async function testGoogleSearchGrounding(): Promise<boolean> {
   const start = Date.now();
   try {
     const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: [{ role: "user", parts: [{ text: `What is the top news headline for ${today}? Be specific with dates.` }] }],
       config: {
         maxOutputTokens: 512,
         tools: [{ googleSearch: {} }],
       },
+      contents: [{ parts: [{ text: `What is the top news headline for ${today}? Be specific with dates.` }], role: "user" }],
+      model: GEMINI_TEXT_MODEL,
     });
 
     const elapsed = Date.now() - start;
@@ -243,7 +246,7 @@ async function testGoogleSearchGrounding(): Promise<boolean> {
 
 async function main() {
   console.log("╔══════════════════════════════════════════════════════╗");
-  console.log("║         Veo / Gemini Connectivity Test              ║");
+  console.log("║     Gemini Omni 1.1 Flash / Gemini Connectivity      ║");
   console.log("╚══════════════════════════════════════════════════════╝");
 
   const results: boolean[] = [];
@@ -255,16 +258,16 @@ async function main() {
   }
 
   results.push(await testGeminiText());
-  results.push(await testVeoVideo());
-  results.push(await testVeoWithReferenceImage());
+  results.push(await testOmniVideo());
+  results.push(await testOmniWithReferenceImage());
   results.push(await testGoogleSearchGrounding());
 
   console.log("\n── Summary ────────────────────────────────────────────");
   const labels = [
     "API Key",
     `Gemini Text (${GEMINI_TEXT_MODEL})`,
-    `Veo Video (${VEO_VIDEO_MODEL})`,
-    `Veo + Reference Image`,
+    `Gemini Omni Video (${OMNI_VIDEO_MODEL})`,
+    `Gemini Omni + Reference Image`,
     `Gemini + Google Search Grounding`,
   ];
   for (let i = 0; i < results.length; i++) {
@@ -272,9 +275,9 @@ async function main() {
   }
 
   const allPassed = results.every(Boolean);
-  console.log(allPassed
-    ? "\n✓ All checks passed — ready to generate shows.\n"
-    : "\n✗ Some checks failed — see above for details.\n",
+  console.log(allPassed ?
+    "\n✓ All checks passed — ready to generate shows.\n" :
+    "\n✗ Some checks failed — see above for details.\n",
   );
   process.exit(allPassed ? 0 : 1);
 }

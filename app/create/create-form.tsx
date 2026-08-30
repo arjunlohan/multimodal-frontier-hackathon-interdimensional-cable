@@ -30,6 +30,7 @@ export function CreateForm({ templates }: CreateFormProps) {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
   const [topicType, setTopicType] = useState("freetext");
+  const [mediaFormat, setMediaFormat] = useState<"video" | "audio">("video");
   const [durationSeconds, setDurationSeconds] = useState(16);
   const [familiarity, setFamiliarity] = useState("familiar");
   const [useFrameChaining, setUseFrameChaining] = useState(false);
@@ -65,7 +66,8 @@ export function CreateForm({ templates }: CreateFormProps) {
   }
 
   function handleSubmit() {
-    if (!templateId || !topic.trim()) return;
+    if (!templateId || !topic.trim())
+      return;
 
     setError(null);
     startTransition(async () => {
@@ -97,9 +99,9 @@ export function CreateForm({ templates }: CreateFormProps) {
               <div className="flex flex-col items-center">
                 <div
                   className={`flex h-10 w-10 items-center justify-center border-3 border-border text-sm font-extrabold transition-colors ${
-                    step >= s.number
-                      ? "bg-foreground text-surface"
-                      : "bg-surface text-foreground-muted"
+                    step >= s.number ?
+                      "bg-foreground text-surface" :
+                      "bg-surface text-foreground-muted"
                   }`}
                   style={{ fontFamily: "var(--font-space-mono)" }}
                 >
@@ -171,15 +173,66 @@ export function CreateForm({ templates }: CreateFormProps) {
             >
               Configure your show
             </h3>
+
+            {/* Media Format Selector */}
+            <div className="mb-8">
+              <label
+                className="mb-3 block text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
+                style={{ fontFamily: "var(--font-space-mono)" }}
+              >
+                Production Format
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className={`tone-btn text-left p-4 ${mediaFormat === "video" ? "active ring-2 ring-foreground" : ""}`}
+                  onClick={() => {
+                    setMediaFormat("video");
+                    if (durationSeconds > 40)
+                      setDurationSeconds(16);
+                  }}
+                >
+                  <div className="font-bold text-sm" style={{ fontFamily: "var(--font-syne)" }}>
+                    🎬 Video Talk Show (Max 40s)
+                  </div>
+                  <div className="text-xs opacity-75 mt-1">
+                    Powered by Google Gemini Omni 1.1 Flash video generation + multi-speaker TTS.
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`tone-btn text-left p-4 ${mediaFormat === "audio" ? "active ring-2 ring-foreground" : ""}`}
+                  onClick={() => {
+                    setMediaFormat("audio");
+                    if (durationSeconds <= 40)
+                      setDurationSeconds(180);
+                  }}
+                >
+                  <div className="font-bold text-sm" style={{ fontFamily: "var(--font-syne)" }}>
+                    🎙️ Audio Podcast (Up to 5 Min)
+                  </div>
+                  <div className="text-xs opacity-75 mt-1">
+                    Powered directly by Gemini 3.1 Flash TTS multi-speaker dialogue.
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div className="grid gap-8 md:grid-cols-2">
               <div>
                 <label
                   className="mb-3 block text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
                   style={{ fontFamily: "var(--font-space-mono)" }}
                 >
-                  Duration
+                  Duration (
+                  {mediaFormat === "video" ? "Video Clips" : "Podcast Length"}
+                  )
                 </label>
-                <DurationSelector value={durationSeconds} onChange={setDurationSeconds} />
+                <DurationSelector
+                  value={durationSeconds}
+                  onChange={setDurationSeconds}
+                  mediaFormat={mediaFormat}
+                />
               </div>
               <div>
                 <label
@@ -192,41 +245,43 @@ export function CreateForm({ templates }: CreateFormProps) {
               </div>
             </div>
 
-            {/* Frame Chaining Toggle */}
-            <div className="mt-8">
-              <label
-                className="mb-3 block text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
-                style={{ fontFamily: "var(--font-space-mono)" }}
-              >
-                Visual Consistency
-              </label>
-              <button
-                type="button"
-                className={`tone-btn w-full text-left ${useFrameChaining ? "active" : ""}`}
-                style={{ fontFamily: "var(--font-space-mono)" }}
-                onClick={() => setUseFrameChaining(!useFrameChaining)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold">Frame Chaining</div>
-                    <div className="mt-1 text-xs opacity-70">
-                      Generates an anchor clip first, then uses its start/end frames to keep all segments visually consistent
+            {/* Frame Chaining Toggle (Only relevant for video) */}
+            {mediaFormat === "video" && (
+              <div className="mt-8">
+                <label
+                  className="mb-3 block text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted"
+                  style={{ fontFamily: "var(--font-space-mono)" }}
+                >
+                  Visual Consistency
+                </label>
+                <button
+                  type="button"
+                  className={`tone-btn w-full text-left ${useFrameChaining ? "active" : ""}`}
+                  style={{ fontFamily: "var(--font-space-mono)" }}
+                  onClick={() => setUseFrameChaining(!useFrameChaining)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold">Frame Chaining</div>
+                      <div className="mt-1 text-xs opacity-70">
+                        Generates an anchor clip first, then uses its start/end frames to keep all segments visually consistent
+                      </div>
+                    </div>
+                    <div
+                      className={`ml-4 flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-border transition-colors ${
+                        useFrameChaining ? "bg-foreground" : "bg-surface"
+                      }`}
+                    >
+                      <div
+                        className={`h-4 w-4 rounded-full border border-border transition-transform ${
+                          useFrameChaining ? "translate-x-5 bg-surface" : "translate-x-0.5 bg-foreground-muted"
+                        }`}
+                      />
                     </div>
                   </div>
-                  <div
-                    className={`ml-4 flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-border transition-colors ${
-                      useFrameChaining ? "bg-foreground" : "bg-surface"
-                    }`}
-                  >
-                    <div
-                      className={`h-4 w-4 rounded-full border border-border transition-transform ${
-                        useFrameChaining ? "translate-x-5 bg-surface" : "translate-x-0.5 bg-foreground-muted"
-                      }`}
-                    />
-                  </div>
-                </div>
-              </button>
-            </div>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -288,7 +343,8 @@ export function CreateForm({ templates }: CreateFormProps) {
                     Duration
                   </div>
                   <div className="font-bold" style={{ fontFamily: "var(--font-syne)" }}>
-                    {durationSeconds}s
+                    {durationSeconds}
+                    s
                   </div>
                 </div>
                 <div className="border-3 border-border p-4">
@@ -349,27 +405,29 @@ export function CreateForm({ templates }: CreateFormProps) {
         </div>
 
         <div>
-          {step < 4 ? (
-            <button
-              type="button"
-              className="btn-action"
-              style={{ fontFamily: "var(--font-space-mono)" }}
-              disabled={!canAdvance()}
-              onClick={handleNext}
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-action"
-              style={{ fontFamily: "var(--font-space-mono)" }}
-              disabled={isPending}
-              onClick={handleSubmit}
-            >
-              {isPending ? "Creating..." : "Create Show"}
-            </button>
-          )}
+          {step < 4 ?
+              (
+                <button
+                  type="button"
+                  className="btn-action"
+                  style={{ fontFamily: "var(--font-space-mono)" }}
+                  disabled={!canAdvance()}
+                  onClick={handleNext}
+                >
+                  Next
+                </button>
+              ) :
+              (
+                <button
+                  type="button"
+                  className="btn-action"
+                  style={{ fontFamily: "var(--font-space-mono)" }}
+                  disabled={isPending}
+                  onClick={handleSubmit}
+                >
+                  {isPending ? "Creating..." : "Create Show"}
+                </button>
+              )}
         </div>
       </div>
     </div>

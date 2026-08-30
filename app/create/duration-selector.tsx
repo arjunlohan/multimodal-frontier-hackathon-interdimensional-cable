@@ -1,16 +1,19 @@
 "use client";
 
-import { DURATION_OPTIONS } from "./constants";
+import { AUDIO_PODCAST_DURATION_OPTIONS, VIDEO_DURATION_OPTIONS } from "./constants";
 
 interface DurationSelectorProps {
-  value: number;
+  mediaFormat?: "video" | "audio";
   onChange: (v: number) => void;
+  value: number;
 }
 
-export function DurationSelector({ value, onChange }: DurationSelectorProps) {
+export function DurationSelector({ value, onChange, mediaFormat = "video" }: DurationSelectorProps) {
+  const options = mediaFormat === "audio" ? AUDIO_PODCAST_DURATION_OPTIONS : VIDEO_DURATION_OPTIONS;
+
   return (
     <div className="flex flex-wrap gap-2">
-      {DURATION_OPTIONS.map(option => (
+      {options.map(option => (
         <button
           key={option.value}
           type="button"

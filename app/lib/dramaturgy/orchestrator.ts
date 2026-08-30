@@ -1,0 +1,137 @@
+import { buildPersonalizedPromptContext } from "@/app/lib/memory-bank";
+import { resolveSkillForShow } from "@/app/lib/skills/registry";
+
+import { runPass1Research } from "./pass1-research";
+import { generateHeadWriterDraft } from "./pass2-head-writer";
+import { runPass3VoiceAndPrune } from "./pass3-voice-prune";
+import { DramaturgyResultSchema } from "./schemas";
+import type {
+  DramaturgyInput,
+  DramaturgyProgressEvent,
+  DramaturgyResult,
+  PersonalizationContext,
+} from "./types";
+
+export async function runDramaturgyPipeline(
+  input: DramaturgyInput,
+  onProgress?: (event: DramaturgyProgressEvent) => Promise<void>,
+): Promise<DramaturgyResult> {
+  const totalStartTime = Date.now();
+
+  // 1. Skill Resolution
+  const skill = resolveSkillForShow(input.skillIdOrSlug || input.templateId);
+
+  // 2. Personalization / Memory Bank RAG Context
+  let personalizationProfile: PersonalizationContext | undefined;
+  if (input.userId) {
+    try {
+      const memoryContext = await buildPersonalizedPromptContext(input.userId);
+      personalizationProfile = {
+        humorPreference: memoryContext,
+      };
+    } catch (err) {
+      console.warn("[dramaturgy-orchestrator] Could not load user memory bank context:", err);
+    }
+  }
+
+  // 3. Pass 1: Grounded Research & Premise Seed
+  if (onProgress) {
+    await onProgress({
+      step: "research",
+      message: `Researching topic with Google Grounding: "${input.topic}"...`,
+      progressFraction: 0.25,
+    });
+  }
+
+  const p1StartTime = Date.now();
+  const pass1Result = await runPass1Research({
+    topic: input.topic,
+    topicType: input.topicType,
+    familiarity: input.familiarity,
+    showSkill: skill,
+    userProfile: personalizationProfile ? { humorPreference: typeof personalizationProfile.humorPreference === "string" ? personalizationProfile.humorPreference : undefined } : undefined,
+    options: {
+      enableSearch: input.options?.enableSearch ?? true,
+      forceMock: input.options?.forceMock ?? false,
+      temperature: input.options?.temperature,
+    },
+  });
+  const pass1DurationMs = Date.now() - p1StartTime;
+
+  // 4. Pass 2: Head-Writer Draft & Joke Construction
+  if (onProgress) {
+    await onProgress({
+      step: "script_draft",
+      message: `Head writer drafting ${skill.archetype === "writers_room_desk" ? "3-act desk script" : "podcast dialogue graph"} for ${skill.name}...`,
+      progressFraction: 0.65,
+    });
+  }
+
+  const p2StartTime = Date.now();
+  const headWriterDraft = await generateHeadWriterDraft({
+    researchBrief: pass1Result.brief,
+    skill,
+    durationSeconds: input.durationSeconds,
+    personalizationProfile,
+    options: {
+      forceMock: input.options?.forceMock ?? pass1Result.isMocked,
+      temperature: input.options?.temperature,
+    },
+  });
+  const pass2DurationMs = Date.now() - p2StartTime;
+
+  // 5. Pass 3: Voice Tuning, Table-Read Critic & Pre-Flight RAI Safety
+  if (onProgress) {
+    await onProgress({
+      step: "voice_prune",
+      message: "Running stylometric voice pass, table-read joke scoring, and RAI safety filters...",
+      progressFraction: 0.90,
+    });
+  }
+
+  const p3StartTime = Date.now();
+  const pass3Result = await runPass3VoiceAndPrune({
+    draft: headWriterDraft,
+    skill,
+    personalizationProfile,
+    options: {
+      forceMock: input.options?.forceMock ?? pass1Result.isMocked,
+      skipTableReadPrune: input.options?.skipTableReadPrune ?? false,
+    },
+  });
+  const pass3DurationMs = Date.now() - p3StartTime;
+
+  const totalDurationMs = Date.now() - totalStartTime;
+
+  const finalScript = pass3Result.finalScript;
+  const tableReadReport = finalScript.tableReadReport;
+
+  const result: DramaturgyResult = {
+    showId: input.showId,
+    skill,
+    researchBrief: pass1Result.brief,
+    headWriterDraft,
+    finalScript,
+    executionMetrics: {
+      totalDurationMs,
+      pass1DurationMs,
+      pass2DurationMs,
+      pass3DurationMs,
+      jokesEvaluated: tableReadReport.totalJokes,
+      jokesPrunedOrRevised: tableReadReport.prunedCount + tableReadReport.revisedCount,
+      tableReadAvgScore: tableReadReport.averageScore,
+    },
+  };
+
+  if (onProgress) {
+    await onProgress({
+      step: "complete",
+      message: `Script complete (${finalScript.segments.length} segments, Table-read avg: ${tableReadReport.averageScore}/10)`,
+      progressFraction: 1.0,
+    });
+  }
+
+  // Validate output with Zod
+  const validated = DramaturgyResultSchema.parse(result) as DramaturgyResult;
+  return validated;
+}

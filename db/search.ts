@@ -1,11 +1,36 @@
-import { openai } from "@ai-sdk/openai";
-import { embed } from "ai";
+import { GoogleGenAI } from "@google/genai";
 import { and, cosineDistance, desc, eq, gt, sql } from "drizzle-orm";
 
+import { env } from "@/app/lib/env";
 import { getPlaybackIdForAsset } from "@/app/lib/mux";
 import { checkRateLimit, getClientIp } from "@/app/lib/rate-limit";
 
 import { db, videoChunks, videos } from "./index";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client & Embedding Helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getClient(): GoogleGenAI {
+  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for Google text embeddings");
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
+export async function getGoogleEmbedding(text: string): Promise<number[]> {
+  const client = getClient();
+  const response = await client.models.embedContent({
+    model: "text-embedding-004",
+    contents: [{ parts: [{ text }] }],
+  });
+  const values = response.embeddings?.[0]?.values;
+  if (!values) {
+    throw new Error("Failed to generate Google text-embedding-004 embedding");
+  }
+  return values;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -51,8 +76,7 @@ export class SearchRateLimitError extends Error {
 }
 
 /**
- * Performs semantic search on video chunks using vector similarity.
- * Generates an embedding for the query and searches using cosine distance.
+ * Performs semantic search on video chunks using Google text-embedding-004 vector similarity.
  * @throws {SearchRateLimitError} When rate limit is exceeded.
  */
 export async function searchVideoChunks(
@@ -63,7 +87,7 @@ export async function searchVideoChunks(
     return [];
   }
 
-  // Check rate limit for search (uses OpenAI embeddings)
+  // Check rate limit for search
   const clientIp = await getClientIp();
   const rateLimitResult = await checkRateLimit(clientIp, "search");
 
@@ -76,11 +100,8 @@ export async function searchVideoChunks(
     );
   }
 
-  // Generate embedding for the search query
-  const { embedding } = await embed({
-    model: openai.textEmbeddingModel("text-embedding-3-small"),
-    value: query,
-  });
+  // Generate embedding using Google text-embedding-004
+  const embedding = await getGoogleEmbedding(query);
 
   // Calculate similarity (1 - cosine distance)
   const similarity = sql<number>`1 - (${cosineDistance(videoChunks.embedding, embedding)})`;
@@ -133,7 +154,7 @@ export async function searchVideoChunks(
 }
 
 /**
- * Performs semantic search within a specific video's transcript chunks.
+ * Performs semantic search within a specific video's transcript chunks using Google text-embedding-004.
  * Returns matching chunks with start times for transcript scrolling.
  */
 export async function searchChunksWithinVideo(
@@ -145,11 +166,8 @@ export async function searchChunksWithinVideo(
     return [];
   }
 
-  // Generate embedding for the search query
-  const { embedding } = await embed({
-    model: openai.textEmbeddingModel("text-embedding-3-small"),
-    value: query,
-  });
+  // Generate embedding using Google text-embedding-004
+  const embedding = await getGoogleEmbedding(query);
 
   // Calculate similarity (1 - cosine distance)
   const similarity = sql<number>`1 - (${cosineDistance(videoChunks.embedding, embedding)})`;

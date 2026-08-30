@@ -13,13 +13,15 @@
     "db:studio": "drizzle-kit studio --port 4983",
     "import-mux-assets": "tsx scripts/import-mux-assets.ts",
     "seed-templates": "tsx scripts/seed-templates.ts",
+    "agent:taskmaster": "tsx scripts/autonomous-trend-agent.ts",
     "remotion:studio": "remotion studio remotion/index.ts --port 5432",
     "remotion:render:local": "remotion render",
     "remotion:deploy": "node remotion/deploy.mjs",
     "visualize:workflows": "npx workflow web",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:veo": "tsx scripts/test-veo.ts"
+    "test:veo": "tsx scripts/test-veo.ts",
+    "test:omni": "tsx scripts/test-veo.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.86",

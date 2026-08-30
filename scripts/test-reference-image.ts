@@ -1,21 +1,23 @@
-/* eslint-disable no-console */
-import dotenv from "dotenv";
+/* eslint-disable no-console, node/no-process-env */
 import fs from "node:fs";
 import path from "node:path";
 
+import dotenv from "dotenv";
+
 dotenv.config({ path: ".env.local" });
 
-const VEO_MODEL = "veo-3.1-generate-preview";
+const OMNI_MODEL = "gemini-omni-1.1-flash";
 
 function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!key) throw new Error("No GEMINI_API_KEY found in .env.local");
+  if (!key)
+    throw new Error("No GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY found in .env.local");
   return key;
 }
 
 async function main() {
   console.log("╔══════════════════════════════════════════════════════╗");
-  console.log("║     Reference Image (JPEG) Test                     ║");
+  console.log("║     Gemini Omni 1.1 Flash Reference Image Test       ║");
   console.log("╚══════════════════════════════════════════════════════╝\n");
 
   // Step 1: Check all reference images load
@@ -40,8 +42,8 @@ async function main() {
     }
   }
 
-  // Step 2: Test Veo with JPEG reference image
-  console.log("\n── Step 2: Veo + JPEG reference image ─────────────────\n");
+  // Step 2: Test Gemini Omni 1.1 Flash with JPEG reference image
+  console.log("\n── Step 2: Gemini Omni + JPEG reference image ──────────\n");
   const { GoogleGenAI, VideoGenerationReferenceType } = await import("@google/genai");
   const client = new GoogleGenAI({ apiKey: getApiKey() });
 
@@ -54,24 +56,24 @@ async function main() {
 
   const imageBytes = fs.readFileSync(imagePath).toString("base64");
   console.log(`  ...  Loaded john-oliver.jpeg (${(imageBytes.length * 0.75 / 1024).toFixed(0)} KB)`);
-  console.log("  ...  Sending to Veo with referenceImages + personGeneration: allow_adult...");
+  console.log("  ...  Sending to Gemini Omni with referenceImages (<IMAGE_REF_0>) + personGeneration: allow_adult...");
 
   const start = Date.now();
   try {
     let operation = await client.models.generateVideos({
-      model: VEO_MODEL,
-      prompt: "A professional late-night talk show segment. A single host behind a desk delivering a monologue, with a colorful graphic behind them. The host is saying: \"Welcome back everyone, tonight we have an absolutely wild story for you.\" The host should be animated, expressive, and natural. Studio lighting, professional TV production quality.",
       config: {
         aspectRatio: "16:9",
-        numberOfVideos: 1,
         durationSeconds: 8,
-        resolution: "1080p",
+        numberOfVideos: 1,
         personGeneration: "allow_adult",
         referenceImages: [{
           image: { imageBytes, mimeType: "image/jpeg" },
           referenceType: VideoGenerationReferenceType.ASSET,
         }],
+        resolution: "1080p",
       },
+      model: OMNI_MODEL,
+      prompt: "A professional late-night talk show segment. A single host behind a desk delivering a monologue <IMAGE_REF_0>, with a colorful graphic behind them. The host is saying: \"Welcome back everyone, tonight we have an absolutely wild story for you.\" The host should be animated, expressive, and natural. Studio lighting, professional TV production quality.",
     });
 
     const elapsed = Date.now() - start;
@@ -115,7 +117,7 @@ async function main() {
     const elapsed = Date.now() - start;
     const msg = err instanceof Error ? err.message : String(err);
 
-    if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
+    if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
       console.log(`  FAIL  Rate limited — wait 60s and try again (${elapsed}ms)`);
     } else {
       console.log(`  FAIL  ${msg} (${elapsed}ms)`);

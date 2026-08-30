@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+import { Buffer } from "node:buffer";
+
 import { GoogleGenAI } from "@google/genai";
 
 import { env } from "./env";
@@ -26,9 +28,31 @@ const VOICE_MAP: Record<string, string> = {
   "Michael Che": "Puck",
 };
 
-const FALLBACK_VOICES = ["Kore", "Puck", "Charon", "Fenrir", "Aoede", "Enceladus"];
+const FALLBACK_VOICES = ["Charon", "Orus", "Puck", "Fenrir", "Aoede", "Kore", "Enceladus"];
 
-function voiceForHost(name: string, index: number): string {
+export type TtsHost =
+  | string |
+  {
+    name: string;
+    ttsVoice?: string;
+    voice?: string;
+    role?: string;
+    position?: string;
+    personality?: string;
+  };
+
+export function voiceForHost(host: TtsHost | string, index = 0): string {
+  if (typeof host === "string") {
+    return VOICE_MAP[host] ?? FALLBACK_VOICES[index % FALLBACK_VOICES.length];
+  }
+
+  // Check explicit voice on host object first
+  const explicitVoice = host.ttsVoice || host.voice;
+  if (explicitVoice) {
+    return explicitVoice;
+  }
+
+  const name = host.name ?? "";
   return VOICE_MAP[name] ?? FALLBACK_VOICES[index % FALLBACK_VOICES.length];
 }
 
@@ -36,7 +60,7 @@ function voiceForHost(name: string, index: number): string {
 // WAV encoding (24 kHz, 16-bit, mono)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function encodePcmToWav(pcm: Buffer): Buffer {
+export function encodePcmToWav(pcm: Buffer): Buffer {
   const sampleRate = 24000;
   const numChannels = 1;
   const bitsPerSample = 16;
@@ -67,16 +91,12 @@ function encodePcmToWav(pcm: Buffer): Buffer {
 // TTS generation
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface TtsHost {
-  name: string;
-}
-
 const LANGUAGE_NAMES: Record<string, string> = {
+  de: "German",
   es: "Spanish",
   fr: "French",
-  de: "German",
-  pt: "Portuguese",
   ja: "Japanese",
+  pt: "Portuguese",
 };
 
 /**
@@ -91,12 +111,12 @@ async function translateTranscript(
   console.log("[tts] Translating transcript to", langName);
 
   const response = await client.models.generateContent({
-    model: "gemini-3-flash-preview",
     contents: [{
       parts: [{
         text: `Translate the following talk show transcript to ${langName}. Return ONLY the translated text, preserving the speaker labels and structure. Do not add any commentary or notes.\n\n${transcript}`,
       }],
     }],
+    model: "gemini-3-flash-preview",
   });
 
   const translated = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -119,40 +139,41 @@ export async function generateTts(
   targetLang?: string,
 ): Promise<Buffer> {
   const langName = targetLang ? (LANGUAGE_NAMES[targetLang] ?? targetLang) : "English";
-  console.log("[tts] generateTts called, transcript length:", transcript.length, "hosts:", hosts.map(h => h.name), "lang:", langName);
+  const hostNames = hosts.map(h => (typeof h === "string" ? h : h.name));
+  console.log("[tts] generateTts called, transcript length:", transcript.length, "hosts:", hostNames, "lang:", langName);
 
-  const textToSpeak = targetLang
-    ? await translateTranscript(transcript, langName)
-    : transcript;
+  const textToSpeak = targetLang ?
+      await translateTranscript(transcript, langName) :
+    transcript;
 
   const client = getClient();
 
-  const speechConfig = hosts.length > 1
-    ? {
+  const speechConfig = hosts.length > 1 ?
+      {
         multiSpeakerVoiceConfig: {
           speakerVoiceConfigs: hosts.map((h, i) => ({
-            speaker: h.name,
+            speaker: typeof h === "string" ? h : h.name,
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voiceForHost(h.name, i) },
+              prebuiltVoiceConfig: { voiceName: voiceForHost(h, i) },
             },
           })),
         },
-      }
-    : {
+      } :
+      {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: voiceForHost(hosts[0]?.name ?? "", 0) },
+          prebuiltVoiceConfig: { voiceName: voiceForHost(hosts[0] ?? "", 0) },
         },
       };
 
-  console.log("[tts] Calling gemini-2.5-flash-preview-tts, lang:", langName);
+  console.log("[tts] Calling gemini-3.1-flash-tts-preview, lang:", langName);
 
   const response = await client.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: textToSpeak }] }],
     config: {
       responseModalities: ["AUDIO"],
       speechConfig,
     },
+    contents: [{ parts: [{ text: textToSpeak }] }],
+    model: "gemini-3.1-flash-tts-preview",
   });
 
   const pcmBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -169,4 +190,17 @@ export async function generateTts(
   console.log("[tts] WAV encoded:", wav.length, "bytes");
 
   return wav;
+}
+
+/**
+ * Generates a short spoken voice clip for a host (e.g., chat reply or on-demand tangent)
+ * and returns it as a base64 Data URI ('data:audio/wav;base64,...').
+ */
+export async function generateSingleVoiceClip(
+  text: string,
+  hostOrName: string | TtsHost = "John Oliver",
+): Promise<string> {
+  const host: TtsHost = typeof hostOrName === "string" ? { name: hostOrName } : hostOrName;
+  const wavBuffer = await generateTts(text, [host]);
+  return `data:audio/wav;base64,${wavBuffer.toString("base64")}`;
 }

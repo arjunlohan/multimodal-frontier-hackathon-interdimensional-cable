@@ -23,6 +23,8 @@ export default antfu({
     "app/.well-known/**",
     // Drizzle migration meta files (auto-generated)
     "db/migrations/meta/**",
+    // Agent metadata directory
+    ".agents/**",
   ],
   stylistic: {
     indent: 2,

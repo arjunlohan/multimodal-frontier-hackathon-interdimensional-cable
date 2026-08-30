@@ -42,7 +42,7 @@ export const videoChunks = pgTable("video_chunks", {
   chunkIndex: integer("chunk_index").notNull(),
   startTime: real("start_time"),
   endTime: real("end_time"),
-  embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small
+  embedding: vector("embedding", { dimensions: 768 }), // Google text-embedding-004
   createdAt: timestamp("created_at").defaultNow(),
 }, table => [
   index("video_chunks_video_id_idx").on(table.videoId),
@@ -171,6 +171,44 @@ export const userSettings = pgTable("user_settings", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Agent Memory Bank Table (Cross-session knowledge, interests & mental model)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const userMemories = pgTable("user_memories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  memoryType: text("memory_type").notNull(), // "concept_mastery" | "humor_preference" | "interest_topic" | "question_pattern" | "custom_note"
+  key: text("key").notNull(),
+  value: text("value").notNull(),
+  confidence: real("confidence").default(1.0),
+  sourceShowId: uuid("source_show_id").references(() => generatedShows.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, table => [
+  index("user_memories_user_id_idx").on(table.userId),
+  index("user_memories_type_idx").on(table.memoryType),
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Show Tangents Table (On-the-fly generated interactive deep-dives & audio clips)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const showTangents = pgTable("show_tangents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  showId: uuid("show_id").notNull().references(() => generatedShows.id, { onDelete: "cascade" }),
+  userId: text("user_id"),
+  question: text("question").notNull(),
+  hostName: text("host_name").notNull(),
+  scriptText: text("script_text").notNull(),
+  audioUrl: text("audio_url"),
+  audioData: text("audio_data"), // base64 encoded audio data when stored inline
+  durationSeconds: integer("duration_seconds"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, table => [
+  index("show_tangents_show_id_idx").on(table.showId),
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Type exports
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -192,3 +230,7 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
 export type UserSetting = typeof userSettings.$inferSelect;
 export type NewUserSetting = typeof userSettings.$inferInsert;
+export type UserMemory = typeof userMemories.$inferSelect;
+export type NewUserMemory = typeof userMemories.$inferInsert;
+export type ShowTangent = typeof showTangents.$inferSelect;
+export type NewShowTangent = typeof showTangents.$inferInsert;

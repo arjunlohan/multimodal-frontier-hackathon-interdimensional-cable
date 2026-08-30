@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Markdown from "react-markdown";
 
+import { MemoryProfileCard } from "@/app/components/memory-profile-card";
 import { PlayerProvider } from "@/app/media/[slug]/player/provider";
 import { VideoPlayer } from "@/app/media/[slug]/player/ui";
+import type { GeneratedShow, ShowTemplate } from "@/db/schema";
 
 import { ChatPanel } from "./chat/chat-panel";
 import { ShowTranscript } from "./show-transcript";
 import { DubbingPanel } from "./tts-panel";
-
-import type { GeneratedShow, ShowTemplate } from "@/db/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -49,6 +49,9 @@ export function WatchContent({ show, template }: WatchContentProps) {
             />
           </div>
 
+          {/* Persistent Agent Memory Bank Display */}
+          <MemoryProfileCard userId={show.userId || "default_user"} />
+
           {/* Synced Transcript */}
           {segments.length > 0 && (
             <ShowTranscript segments={segments} />
@@ -62,12 +65,13 @@ export function WatchContent({ show, template }: WatchContentProps) {
             <ResearchPanel content={show.researchContext} />
           )}
 
-          {/* Chat */}
+          {/* Chat with In-Character Host & Memory Bank */}
           <ChatPanel
             showId={show.id}
             topic={show.topic}
             transcript={show.transcript ?? ""}
             researchContext={show.researchContext ?? ""}
+            hostName={hosts[0]?.name ?? "Host"}
           />
 
           {/* Audio Dubbing */}
@@ -99,7 +103,10 @@ export function WatchContent({ show, template }: WatchContentProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-foreground-muted">Duration</span>
-                <span className="font-bold">{show.durationSeconds}s</span>
+                <span className="font-bold">
+                  {show.durationSeconds}
+                  s
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-foreground-muted">Familiarity</span>
