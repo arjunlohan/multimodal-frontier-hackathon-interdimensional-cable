@@ -319,22 +319,21 @@ describe("two-Archetype Modular Show SKILL Engine", () => {
   // 6. Central Registry & Smart Resolution
   // ───────────────────────────────────────────────────────────────────────────
   describe("central Registry & Smart Resolution", () => {
-    it("indexes all 6 skills in SHOW_SKILL_REGISTRY", () => {
-      expect(Object.keys(SHOW_SKILL_REGISTRY).length).toBe(6);
-      expect(listShowSkills().length).toBe(6);
+    it("indexes all 7 skills in SHOW_SKILL_REGISTRY", () => {
+      expect(Object.keys(SHOW_SKILL_REGISTRY).length).toBe(7);
+      expect(listShowSkills().length).toBe(7);
     });
 
     it("looks up skills by ID, slug, and alias", () => {
       expect(getShowSkill("investigative-desk")?.id).toBe("investigative-desk");
-      expect(getShowSkill("john-oliver")?.id).toBe("investigative-desk");
       expect(getShowSkill("closer-look")?.id).toBe("closer-look");
-      expect(getShowSkill("seth-meyers")?.id).toBe("closer-look");
-      expect(getShowSkill("snl-weekend-update")?.id).toBe("satirical-news-desk");
       expect(getShowSkill("satirical-news")?.id).toBe("satirical-news-desk");
-      expect(getShowSkill("joe-rogan")?.id).toBe("podcast-speculative-wonder");
       expect(getShowSkill("speculative-podcast")?.id).toBe("podcast-speculative-wonder");
-      expect(getShowSkill("tim-dillon")?.id).toBe("podcast-apocalyptic-satire");
       expect(getShowSkill("apocalyptic-satire")?.id).toBe("podcast-apocalyptic-satire");
+      expect(getShowSkill("venture-panel")?.id).toBe("panel-venture-roundtable");
+      // Real-person aliases were removed deliberately.
+      expect(getShowSkill("john-oliver")).toBeUndefined();
+      expect(getShowSkill("joe-rogan")).toBeUndefined();
     });
 
     it("filters skills by archetype", () => {
@@ -342,7 +341,7 @@ describe("two-Archetype Modular Show SKILL Engine", () => {
       expect(deskSkills.length).toBe(4);
 
       const podcastSkills = getShowSkillsByArchetype("conversational_podcast");
-      expect(podcastSkills.length).toBe(2);
+      expect(podcastSkills.length).toBe(3);
     });
 
     it("resolves default skills correctly", () => {

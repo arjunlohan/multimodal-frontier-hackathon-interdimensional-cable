@@ -9,7 +9,7 @@ export const closerLookSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Sharp, staccato political dissection driven by head-writer wit, quick character impressions, conversational self-audits, and rapid-fire joke tags.",
-  referenceImageUrl: "/templates/political-dissection.png",
+  referenceImageUrl: "/templates/political-dissection.svg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.5, max: 5.8 },
@@ -69,10 +69,9 @@ export const closerLookSkill: ShowSkill = {
   notes:
     "Surgical political comedy. Prioritizes tight joke economy, tags, and rapid impressions over grand theatrical set-pieces.",
   isDefault: true,
+  displayOrder: 4,
   aliases: [
-    "seth-meyers",
     "closer-look",
-    "meyers",
     "late-night",
     "surgical-dissection",
   ],

@@ -170,10 +170,10 @@ describe("m1 empirical challenger: stress-testing Show SKILL engine", () => {
     it("handles case-insensitive and whitespace-padded lookups in getShowSkill", () => {
       expect(getShowSkill("INVESTIGATIVE-DESK")?.id).toBe("investigative-desk");
       expect(getShowSkill("  closer-look  ")?.id).toBe("closer-look");
-      expect(getShowSkill("JoHn-OlIvEr")?.id).toBe("investigative-desk");
-      expect(getShowSkill("  SNL-WEEKEND-UPDATE  ")?.id).toBe("satirical-news-desk");
-      expect(getShowSkill("JOE-ROGAN")?.id).toBe("podcast-speculative-wonder");
-      expect(getShowSkill("TIM-DILLON")?.id).toBe("podcast-apocalyptic-satire");
+      expect(getShowSkill("InVeStIgAtIvE-DeSk")?.id).toBe("investigative-desk");
+      expect(getShowSkill("  SATIRICAL-NEWS  ")?.id).toBe("satirical-news-desk");
+      expect(getShowSkill("SPECULATIVE-PODCAST")?.id).toBe("podcast-speculative-wonder");
+      expect(getShowSkill("APOCALYPTIC-SATIRE")?.id).toBe("podcast-apocalyptic-satire");
     });
 
     it("returns undefined for unknown or empty keys in getShowSkill", () => {
@@ -202,15 +202,14 @@ describe("m1 empirical challenger: stress-testing Show SKILL engine", () => {
       expect(resolveSkillForShow("conversation").archetype).toBe("conversational_podcast");
 
       // Substrings in names and hosts
-      expect(resolveSkillForShow("Oliver").id).toBe("investigative-desk");
-      expect(resolveSkillForShow("Seth").id).toBe("closer-look");
-      expect(resolveSkillForShow("Fallon").id).toBe("variety-monologue");
-      expect(resolveSkillForShow("Michael Che").id).toBe("satirical-news-desk");
-      expect(resolveSkillForShow("Colin").id).toBe("satirical-news-desk");
-      expect(resolveSkillForShow("Rogan").id).toBe("podcast-speculative-wonder");
-      expect(resolveSkillForShow("Duncan").id).toBe("podcast-speculative-wonder");
-      expect(resolveSkillForShow("Dillon").id).toBe("podcast-apocalyptic-satire");
-      expect(resolveSkillForShow("Ben").id).toBe("podcast-apocalyptic-satire");
+      expect(resolveSkillForShow("Olive").id).toBe("investigative-desk");
+      expect(resolveSkillForShow("Mires").id).toBe("closer-look");
+      expect(resolveSkillForShow("Fallout").id).toBe("variety-monologue");
+      expect(resolveSkillForShow("Michael Chey").id).toBe("satirical-news-desk");
+      expect(resolveSkillForShow("Colin Jest").id).toBe("satirical-news-desk");
+      expect(resolveSkillForShow("Brogan").id).toBe("podcast-speculative-wonder");
+      expect(resolveSkillForShow("Trussed").id).toBe("podcast-speculative-wonder");
+      expect(resolveSkillForShow("Villain").id).toBe("podcast-apocalyptic-satire");
     });
 
     it("dynamic registration and overwrite works as intended", () => {

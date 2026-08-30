@@ -6,6 +6,7 @@ import { ShowSkillSchema } from "./schemas";
 import { speculativePodcastSkill } from "./speculative-podcast";
 import type { ShowArchetype, ShowSkill } from "./types";
 import { varietyMonologueSkill } from "./variety-monologue";
+import { venturePanelSkill } from "./venture-panel";
 
 /**
  * In-memory index of all validated Show SKILLs.
@@ -17,6 +18,7 @@ export const SHOW_SKILL_REGISTRY: Record<string, ShowSkill> = {
   [varietyMonologueSkill.id]: ShowSkillSchema.parse(varietyMonologueSkill),
   [speculativePodcastSkill.id]: ShowSkillSchema.parse(speculativePodcastSkill),
   [apocalypticSatireSkill.id]: ShowSkillSchema.parse(apocalypticSatireSkill),
+  [venturePanelSkill.id]: ShowSkillSchema.parse(venturePanelSkill),
 };
 
 /**

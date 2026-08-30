@@ -90,6 +90,8 @@ export const showTemplates = pgTable("show_templates", {
   hosts: jsonb("hosts").notNull(), // [{name, personality, position?}]
   notes: text("notes"),
   isDefault: boolean("is_default").default(false),
+  // Explicit catalogue rank. Lower sorts first; unranked templates default to 100.
+  displayOrder: integer("display_order").default(100),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -1,4 +1,4 @@
-import { asc, count, desc } from "drizzle-orm";
+import { asc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import Link from "next/link";
 import { Pool } from "pg";
@@ -18,7 +18,7 @@ export default async function TemplatesPage() {
   const templates = await db
     .select()
     .from(schema.showTemplates)
-    .orderBy(desc(schema.showTemplates.isDefault), asc(schema.showTemplates.createdAt));
+    .orderBy(asc(schema.showTemplates.displayOrder), asc(schema.showTemplates.createdAt));
 
   // Get show counts per template
   const showCounts = await db

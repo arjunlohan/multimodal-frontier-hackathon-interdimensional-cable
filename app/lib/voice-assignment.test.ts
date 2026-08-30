@@ -11,8 +11,8 @@ vi.mock("@/app/lib/env", () => ({ env: { GEMINI_API_KEY: "AQ.test", DATABASE_URL
 describe("per-show voice assignment", () => {
   const skills = listShowSkills();
 
-  it("registers all six show archetypes", () => {
-    expect(skills.length).toBe(6);
+  it("registers all seven show archetypes", () => {
+    expect(skills.length).toBe(7);
   });
 
   it("pins an explicit voice on every host, so nothing falls back to round-robin", () => {

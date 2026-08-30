@@ -35,7 +35,7 @@ export type HostRole =
   "straight_man" |
   "wildcard";
 
-export type HostPosition = "left" | "right" | "center";
+export type HostPosition = "left" | "right" | "center" | "far_left" | "far_right";
 
 export type TurnType =
   | "inquiry" |
@@ -170,6 +170,8 @@ export interface ShowSkill {
   visualStylePrompt: string;
   notes?: string;
   isDefault?: boolean;
+  /** Catalogue rank. Lower sorts first. */
+  displayOrder?: number;
   aliases?: string[];
 }
 

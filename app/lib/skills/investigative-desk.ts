@@ -9,7 +9,7 @@ export const investigativeDeskSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Erudite, high-velocity investigative monologue combining righteous moral outrage with cascading, hyper-specific absurdist analogies and theatrical set-pieces.",
-  referenceImageUrl: "/templates/investigative-desk.png",
+  referenceImageUrl: "/templates/investigative-desk.svg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 3.5, max: 4.8 },
@@ -71,10 +71,9 @@ export const investigativeDeskSkill: ShowSkill = {
   notes:
     "Signature deep-dive format. Heavy journalistic research wrapped in escalating absurdist metaphors and righteous indignation.",
   isDefault: true,
+  displayOrder: 2,
   aliases: [
-    "john-oliver",
     "last-week-tonight",
-    "oliver",
     "investigative",
     "deep-dive",
   ],

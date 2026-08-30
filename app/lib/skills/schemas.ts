@@ -48,7 +48,8 @@ export const HostRoleSchema = z.enum([
   "wildcard",
 ]);
 
-export const HostPositionSchema = z.enum(["left", "right", "center"]);
+// far_left / far_right accommodate a four-seat panel.
+export const HostPositionSchema = z.enum(["left", "right", "center", "far_left", "far_right"]);
 
 export const TurnTypeSchema = z.enum([
   "inquiry",
@@ -196,6 +197,7 @@ export const ShowSkillSchema = z.object({
   visualStylePrompt: z.string().min(10),
   notes: z.string().optional(),
   isDefault: z.boolean().default(false),
+  displayOrder: z.number().int().min(1).max(999).default(100),
   aliases: z.array(z.string()).default([]),
 });
 

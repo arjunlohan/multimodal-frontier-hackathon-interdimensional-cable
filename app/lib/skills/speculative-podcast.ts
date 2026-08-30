@@ -204,9 +204,8 @@ export const speculativePodcastSkill: ShowSkill = {
   notes:
     "Long-form audio podcast format (60s-300s). Multi-speaker dialogue synthesized via Gemini 3.1 Flash TTS. Uses conversational backchannels, laughter tags, and dynamic tangent drift.",
   isDefault: true,
+  displayOrder: 6,
   aliases: [
-    "joe-rogan",
-    "rogan",
     "speculative-wonder",
     "speculative-podcast",
     "podcast-speculative-wonder",

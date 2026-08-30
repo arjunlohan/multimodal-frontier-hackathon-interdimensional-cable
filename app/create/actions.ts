@@ -1,6 +1,6 @@
 "use server";
 
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
@@ -27,7 +27,7 @@ export async function getTemplatesAction(): Promise<ShowTemplate[]> {
     const templates = await db
       .select()
       .from(schema.showTemplates)
-      .orderBy(desc(schema.showTemplates.isDefault), asc(schema.showTemplates.createdAt));
+      .orderBy(asc(schema.showTemplates.displayOrder), asc(schema.showTemplates.createdAt));
 
     return templates;
   } catch (error) {

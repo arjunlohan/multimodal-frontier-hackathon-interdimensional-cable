@@ -9,7 +9,7 @@ export const satiricalNewsSkill: ShowSkill = {
   showType: "conversation",
   description:
     "High-density dual-anchor news desk trading rapid one-liners, deadpan straight-man setups, subversive streetwise reactions, and cross-desk banter.",
-  referenceImageUrl: "/templates/dual-anchor-desk.png",
+  referenceImageUrl: "/templates/dual-anchor-desk.svg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 5.0, max: 6.5 },
@@ -77,9 +77,8 @@ export const satiricalNewsSkill: ShowSkill = {
   notes:
     "Dual-anchor news parody format. The comedic engine relies entirely on the contrasting dynamic between the polished straight man on the left and the subversive loose cannon on the right.",
   isDefault: true,
+  displayOrder: 5,
   aliases: [
-    "snl-weekend-update",
-    "weekend-update",
     "daily-show",
     "satirical-news",
     "satirical-news-desk",

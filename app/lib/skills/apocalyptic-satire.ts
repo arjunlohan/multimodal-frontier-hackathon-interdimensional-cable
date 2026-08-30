@@ -5,7 +5,7 @@ export const apocalypticSatireSkill: ShowSkill = {
   slug: "apocalyptic-satire",
   name: "Apocalyptic Suburban Report",
   archetype: "conversational_podcast",
-  showType: "conversation",
+  showType: "monologue",
   description:
     "Scorched-earth cynical comedy podcast dissecting economic rot, suburban absurdity, and corporate greed with manic high-voltage diatribes.",
   referenceImageUrl: "/templates/apocalyptic-report.svg",
@@ -100,7 +100,7 @@ export const apocalypticSatireSkill: ShowSkill = {
     {
       name: "Tim Villain",
       role: "lead_host",
-      position: "left",
+      position: "center",
       ttsVoice: "Enceladus",
       personaCraft:
         "Manic cynic and suburban doom philosopher. Treats financial corruption, fake businesses, and social collapse as hilarious performance art. Delivers breathless, escalating compound sentences that build to explosive satirical climaxes. Speaks with absolute, unyielding conviction.",
@@ -115,23 +115,6 @@ export const apocalypticSatireSkill: ShowSkill = {
         "Good luck to them!",
       ],
       speakingRateWpm: 165,
-    },
-    {
-      name: "Ben",
-      role: "co_host_sounding_board",
-      position: "right",
-      ttsVoice: "Orus",
-      personaCraft:
-        "Chuckling sounding board and audience surrogate. Injects brief incredulous backchannels, suppressed giggles, and short reality checks to prompt the next escalation in Tim's rants.",
-      personality:
-        "Supportive laughing co-host who prompts and reacts to the main rant. Injects quiet giggles, brief incredulous confirmations, and cues up the next target.",
-      catchphrases: [
-        "That's unbelievable",
-        "Wait, really?",
-        "No way",
-        "That is insane",
-      ],
-      speakingRateWpm: 140,
     },
   ],
   podcastDynamics: {
@@ -207,9 +190,8 @@ export const apocalypticSatireSkill: ShowSkill = {
   notes:
     "High-intensity satirical podcast format (60s-300s). Multi-speaker synthesis via Gemini 3.1 Flash TTS. Heavy on manic compound diatribes, giggling backchannels, and suburban scam metaphors.",
   isDefault: true,
+  displayOrder: 3,
   aliases: [
-    "tim-dillon",
-    "dillon",
     "apocalyptic-satire",
     "apocalyptic-rant",
     "podcast-apocalyptic-satire",

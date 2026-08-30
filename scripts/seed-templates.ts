@@ -36,6 +36,7 @@ async function seedTemplates() {
           hosts: template.hosts,
           notes: template.notes,
           isDefault: template.isDefault,
+          displayOrder: template.displayOrder,
           updatedAt: new Date(),
         })
         .where(eq(schema.showTemplates.id, existing.id));

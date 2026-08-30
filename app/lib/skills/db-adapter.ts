@@ -23,6 +23,7 @@ export function skillToDbTemplate(skill: ShowSkill): NewShowTemplate {
     })),
     notes: skill.notes ?? skill.description,
     isDefault: skill.isDefault ?? false,
+    displayOrder: skill.displayOrder ?? 100,
   };
 }
 

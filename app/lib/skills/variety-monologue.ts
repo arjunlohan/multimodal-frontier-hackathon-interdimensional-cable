@@ -9,7 +9,7 @@ export const varietyMonologueSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Exuberant, fast-paced variety monologue packed with pop-culture puns, infectious laughter, audience validation, and broad relatable absurdity.",
-  referenceImageUrl: "/templates/variety-monologue.png",
+  referenceImageUrl: "/templates/variety-monologue.svg",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.2, max: 5.5 },
@@ -69,5 +69,10 @@ export const varietyMonologueSkill: ShowSkill = {
   notes:
     "Broad mainstream variety format. Focuses on infectious positive energy, relatable pop-culture punchlines, and high affability.",
   isDefault: false,
-  aliases: ["jimmy-fallon", "tonight-show", "fallon", "variety", "monologue"],
+  displayOrder: 7,
+  aliases: [
+    "tonight-show",
+    "variety",
+    "monologue",
+  ],
 };
