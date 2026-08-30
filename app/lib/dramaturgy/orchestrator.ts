@@ -1,4 +1,4 @@
-import { buildPersonalizedPromptContext } from "@/app/lib/memory-bank";
+import { buildPersonalizedPromptContext, getMemorySummary } from "@/app/lib/memory-bank";
 import { resolveSkillForShow } from "@/app/lib/skills/registry";
 
 import { runPass1Research } from "./pass1-research";
@@ -25,10 +25,20 @@ export async function runDramaturgyPipeline(
   let personalizationProfile: PersonalizationContext | undefined;
   if (input.userId) {
     try {
-      const memoryContext = await buildPersonalizedPromptContext(input.userId);
-      personalizationProfile = {
-        humorPreference: memoryContext,
-      };
+      // Gate on real memories. With an empty bank buildPersonalizedPromptContext
+      // still returns a "no prior history" sentence, and injecting that would
+      // change the prompt on every first-time run for no benefit.
+      const summary = await getMemorySummary(input.userId);
+      if (summary.totalMemories > 0) {
+        const memoryContext = await buildPersonalizedPromptContext(input.userId);
+        personalizationProfile = {
+          humorPreference: memoryContext,
+        };
+        console.log(
+          `[dramaturgy-orchestrator] Personalizing from ${summary.totalMemories} memories`,
+          `(${summary.conceptMastery.length} tracked concepts)`,
+        );
+      }
     } catch (err) {
       console.warn("[dramaturgy-orchestrator] Could not load user memory bank context:", err);
     }

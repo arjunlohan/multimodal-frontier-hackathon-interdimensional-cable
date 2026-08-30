@@ -83,6 +83,10 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
         familiarity: formData.familiarity,
         useFrameChaining: formData.useFrameChaining ?? false,
         status: "pending",
+        // Without this the dramaturgy orchestrator skips the personalization
+        // branch entirely, so the memory bank is recalled and displayed but
+        // never reaches a generated episode.
+        userId: "default_user",
       })
       .returning({ id: schema.generatedShows.id });
 

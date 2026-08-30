@@ -154,7 +154,7 @@ tasks/                  # Task tracking (todo.md, lessons.md)
 
 - **PostgreSQL + pgvector** — semantic search via embeddings
 - Tables: `videos`, `video_chunks` (embeddings), `rate_limits`, `feature_metrics`
-- Embeddings: OpenAI `text-embedding-3-small` (1536 dimensions)
+- Embeddings: Google `text-embedding-004` (768 dimensions)
 - HNSW index for cosine similarity search
 
 ---

@@ -41,16 +41,19 @@ export interface SummaryWorkflowPollResult {
 }
 
 function getProviderConfig() {
+  // Google first: this is the project's primary inference surface. The other two
+  // remain as fallbacks only for the legacy @mux/ai media primitives.
+  const googleKey = env.GOOGLE_GENERATIVE_AI_API_KEY ?? env.GEMINI_API_KEY;
+  if (googleKey) {
+    return { provider: "google" as const, googleApiKey: googleKey };
+  }
+
   if (env.ANTHROPIC_API_KEY) {
     return { provider: "anthropic" as const, anthropicApiKey: env.ANTHROPIC_API_KEY };
   }
 
   if (env.OPENAI_API_KEY) {
     return { provider: "openai" as const, openaiApiKey: env.OPENAI_API_KEY };
-  }
-
-  if (env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    return { provider: "google" as const, googleApiKey: env.GOOGLE_GENERATIVE_AI_API_KEY };
   }
 
   return null;

@@ -254,16 +254,48 @@ async function researchStep(
   // Fetch URL content if needed
   let topicContent = show.topic;
   if (show.topicType === "news_link" || show.topicType === "hacker_news") {
+    let extracted = "";
+    let failure = "";
+
     try {
-      const response = await fetch(show.topic);
-      if (response.ok) {
+      const response = await fetch(show.topic, {
+        signal: AbortSignal.timeout(15_000),
+        headers: { "User-Agent": "InterdimensionalCable/1.0 (+show-research)" },
+      });
+
+      if (!response.ok) {
+        failure = `the site returned HTTP ${response.status}`;
+      } else {
         const html = await response.text();
-        const textContent = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        topicContent = `URL: ${show.topic}\n\nContent: ${textContent.slice(0, 5000)}`;
+        extracted = html
+          // Drop script/style bodies before stripping tags. Tag-stripping alone
+          // leaves their contents behind, so minified JS reaches the research
+          // prompt as if it were article prose.
+          .replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+          .replace(/<[^>]*>/g, " ")
+          .replace(/&(nbsp|amp|quot|#39|lt|gt);/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (extracted.length < 400) {
+          failure = `only ${extracted.length} characters of readable text came back, which usually means a paywall or a JavaScript-rendered page`;
+        }
       }
-    } catch {
-      topicContent = `Topic: ${show.topic} (URL could not be fetched)`;
+    } catch (err) {
+      failure = err instanceof Error ? err.message : String(err);
     }
+
+    if (failure) {
+      // Fail loudly. Handing the model a bare URL it cannot read makes it invent
+      // an entire episode and present the fabrication as grounded research,
+      // which is far worse than refusing the run.
+      throw new Error(
+        `Could not read ${show.topic} — ${failure}. Paste the article text directly, or try a different link.`,
+      );
+    }
+
+    console.log(`[workflow:research] Extracted ${extracted.length} chars from ${show.topic}`);
+    topicContent = `URL: ${show.topic}\n\nContent: ${extracted.slice(0, 5000)}`;
   }
 
   console.log("[workflow:research] Running Pass 1 Grounded Research with Gemini 3.7 Flash...");

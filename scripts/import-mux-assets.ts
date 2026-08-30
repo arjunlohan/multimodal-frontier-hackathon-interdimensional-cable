@@ -131,12 +131,13 @@ async function importMuxAssets() {
       // Generate embeddings using Google GenAI text-embedding-004
       console.log(`Generating Google embeddings for asset ${asset.id}...`);
 
-      const { GoogleGenAI } = await import("@google/genai");
+      const { buildGenAIClient } = await import("../app/lib/genai");
       const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       if (!apiKey) {
         throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY required");
       }
-      const client = new GoogleGenAI({ apiKey });
+      // Shared factory: express (`AQ.*`) keys are Vertex-only and 403 otherwise.
+      const client = buildGenAIClient(apiKey);
 
       // Parse VTT into chunks if available
       interface ChunkData {

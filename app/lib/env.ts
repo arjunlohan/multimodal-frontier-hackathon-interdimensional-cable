@@ -34,8 +34,8 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: optionalString("Anthropic API key for Claude-backed workflows."),
   GOOGLE_GENERATIVE_AI_API_KEY: optionalString("Google Generative AI API key for Gemini-backed workflows."),
 
-  // Gemini API key (for Gemini Omni 1.1 Flash video generation and LLM)
-  GEMINI_API_KEY: optionalString("Gemini API key for Gemini Omni 1.1 Flash video generation and research/scripting."),
+  // Google API key for all Gemini inference and Veo video generation
+  GEMINI_API_KEY: optionalString("Google API key for all Gemini inference (research, scripting, TTS, embeddings) and Veo video generation on Vertex."),
   GOOGLE_GENAI_USE_VERTEX: optionalString("Set to \"true\" when GEMINI_API_KEY is a Vertex/Agent Platform express-mode key (AQ.* prefix)."),
   GOOGLE_CLOUD_PROJECT: optionalString("GCP project ID. Required for video generation: long-running video ops cannot be addressed by an express-mode key alone."),
   GOOGLE_CLOUD_LOCATION: optionalString("Vertex location for video generation (default us-central1)."),
@@ -49,12 +49,14 @@ const EnvSchema = z.object({
   // ElevenLabs API key (optional; required only if you want to use translateAudio)
   ELEVENLABS_API_KEY: optionalString("ElevenLabs API key for translateAudio workflow."),
 
-  // S3-Compatible Storage (required for translation workflows)
-  S3_ENDPOINT: requiredString("S3 endpoint for translation workflows.", "Required to store translated artifacts."),
-  S3_REGION: requiredString("S3 region for translation workflows.", "Required to store translated artifacts."),
-  S3_BUCKET: requiredString("S3 bucket for translation workflows.", "Required to store translated artifacts."),
-  S3_ACCESS_KEY_ID: requiredString("S3 access key ID for translation workflows.", "Required to store translated artifacts."),
-  S3_SECRET_ACCESS_KEY: requiredString("S3 secret access key for translation workflows.", "Required to store translated artifacts."),
+  // S3-compatible storage. Optional: only the legacy @mux/ai translation
+  // primitives read these, and those also need ELEVENLABS_API_KEY. Requiring
+  // them would block boot for anyone who only wants the show pipeline.
+  S3_ENDPOINT: optionalString("S3-compatible endpoint for the legacy translation workflows."),
+  S3_REGION: optionalString("S3 region for the legacy translation workflows."),
+  S3_BUCKET: optionalString("S3 bucket for the legacy translation workflows."),
+  S3_ACCESS_KEY_ID: optionalString("S3 access key ID for the legacy translation workflows."),
+  S3_SECRET_ACCESS_KEY: optionalString("S3 secret access key for the legacy translation workflows."),
 
   // Database (PostgreSQL with pgvector)
   DATABASE_URL: requiredString("PostgreSQL connection string (pgvector). Required to store/search the Mux catalog metadata.", "Required to connect to the database."),

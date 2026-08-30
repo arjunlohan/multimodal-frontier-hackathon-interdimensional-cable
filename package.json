@@ -1,7 +1,8 @@
 {
-  "name": "try-workflows",
+  "name": "interdimensional-cable",
   "version": "0.1.0",
   "private": true,
+  "description": "Autonomous, memory-adaptive on-demand podcast and video show network built on Gemini and Google Cloud.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -24,7 +25,6 @@
     "test:omni": "tsx scripts/test-veo.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.86",
     "@google/genai": "^1.47.0",
     "@mux/ai": "0.3.1",
     "@mux/mux-node": "^12.8.1",

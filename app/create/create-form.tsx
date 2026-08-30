@@ -196,7 +196,7 @@ export function CreateForm({ templates }: CreateFormProps) {
                     🎬 Video Talk Show (Max 40s)
                   </div>
                   <div className="text-xs opacity-75 mt-1">
-                    Powered by Google Gemini Omni 1.1 Flash video generation + multi-speaker TTS.
+                    Powered by Veo 3.1 on Vertex AI + multi-speaker Gemini TTS.
                   </div>
                 </button>
                 <button

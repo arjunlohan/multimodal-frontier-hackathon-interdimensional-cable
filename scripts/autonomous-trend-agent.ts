@@ -11,15 +11,15 @@
  * Run: tsx scripts/autonomous-trend-agent.ts
  */
 
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { start } from "workflow/api";
 
+import { buildGenAIClient } from "../app/lib/genai";
 import * as schema from "../db/schema";
-import { generateShowWorkflow } from "../workflows/generate-show";
+
+import type { GoogleGenAI } from "@google/genai";
 
 dotenv.config({ path: ".env.local" });
 
@@ -30,7 +30,9 @@ function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey)
     throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY required");
-  return new GoogleGenAI({ apiKey });
+  // Must route through the shared factory: express (`AQ.*`) keys are Vertex-only
+  // and a bare client returns 403 PERMISSION_DENIED against them.
+  return buildGenAIClient(apiKey);
 }
 
 interface TrendingStory {
@@ -167,15 +169,31 @@ Return valid JSON in this format:
 
   console.log(`✓ Show record created (ID: ${show.id})`);
 
-  // Start workflow asynchronously
+  // Dispatch over HTTP rather than calling start() directly. The workflow id is
+  // injected by the Next.js bundler plugin (next.config.ts `withWorkflow`), which
+  // never runs under tsx — start() therefore throws in a bare script process.
   console.log("[taskmaster] Dispatching durable workflow execution...");
-  const run = await start(generateShowWorkflow, [show.id]);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/workflows/generate-show`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ showId: show.id }),
+  });
+  const dispatch = await res.json();
+
+  if (!dispatch.runId) {
+    // Never leave an orphaned `pending` row behind when dispatch fails.
+    await db.delete(schema.generatedShows).where(eq(schema.generatedShows.id, show.id));
+    throw new Error(
+      `Workflow dispatch failed (${res.status}): ${dispatch.error ?? "no runId returned"}`,
+    );
+  }
 
   await db.update(schema.generatedShows)
-    .set({ workflowRunId: run.runId })
+    .set({ workflowRunId: dispatch.runId })
     .where(eq(schema.generatedShows.id, show.id));
 
-  console.log(`✓ Durable workflow started! Run ID: ${run.runId}`);
+  console.log(`✓ Durable workflow started! Run ID: ${dispatch.runId}`);
   console.log(`✓ Inspect progress at: /create/${show.id}`);
   console.log("\n[taskmaster] Autonomous coordination cycle complete.\n");
 

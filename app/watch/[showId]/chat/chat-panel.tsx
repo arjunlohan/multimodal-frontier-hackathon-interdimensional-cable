@@ -218,7 +218,7 @@ export function ChatPanel({ showId, topic, transcript, researchContext, hostName
             {activeAudio && (
               <div className="border-2 border-accent bg-accent/10 p-2.5 my-2">
                 <span className="block text-[10px] font-bold uppercase text-accent mb-1" style={{ fontFamily: "var(--font-space-mono)" }}>
-                  🎙️ Playing Host Audio Tangent (Gemini 2.5 Flash TTS)
+                  🎙️ Playing Host Audio Tangent (Gemini 3.1 Flash TTS)
                 </span>
                 <audio controls src={activeAudio} className="w-full h-8" autoPlay />
               </div>

@@ -1,13 +1,12 @@
 "use server";
 
-import { openai } from "@ai-sdk/openai";
-import { generateObject } from "ai";
 import dedent from "dedent";
 import { headers } from "next/headers";
 import { getRun, start } from "workflow/api";
 import { z } from "zod";
 
 import { env } from "@/app/lib/env";
+import { buildGenAIClient } from "@/app/lib/genai";
 import { findTextTrack, getMuxAudioUrl, getPlaybackIdForAsset, getTrackVtt } from "@/app/lib/mux";
 import type { PlaybackPolicy } from "@/app/lib/mux";
 import { parseVtt } from "@/app/media/[slug]/transcript/helpers";
@@ -254,75 +253,6 @@ function pickClipCandidates(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Suggest an interesting clip window by fetching the asset's VTT and asking GPT-5.2 to choose
- * a strong ~15s segment. Falls back to a simple heuristic if the model cannot decide.
- */
-export async function suggestSocialClipRangeAction(assetId: string): Promise<SuggestSocialClipRangeResult> {
-  const { asset, playbackId } = await getPlaybackIdForAsset(assetId);
-
-  const track = findTextTrack(asset, "en") ?? findTextTrack(asset);
-  if (!track?.id) {
-    throw new Error("No ready text track found for this asset.");
-  }
-
-  const vtt = await getTrackVtt(playbackId, track.id);
-  const cues = parseVtt(vtt);
-  if (cues.length === 0) {
-    return {
-      startTime: 0,
-      endTime: 15,
-      trackId: track.id,
-      languageCode: track.language_code ?? undefined,
-      rationale: "No cues found in VTT; defaulting to first 15 seconds.",
-    };
-  }
-
-  const candidates = pickClipCandidates(cues, { targetDurationS: 15, minDurationS: 8, maxCandidates: 12 });
-  if (candidates.length === 0) {
-    return {
-      startTime: cues[0].startTime,
-      endTime: Math.max(cues[0].endTime, cues[0].startTime + 8),
-      trackId: track.id,
-      languageCode: track.language_code ?? undefined,
-      rationale: "Unable to form candidates; defaulting to first cue window.",
-    };
-  }
-
-  const SuggestSchema = z.object({
-    candidateId: z.string(),
-    startTime: z.number(),
-    endTime: z.number(),
-    rationale: z.string(),
-  });
-
-  const { object } = await generateObject({
-    model: openai("gpt-5.2"),
-    schema: SuggestSchema,
-    system: CLIP_SELECTION_SYSTEM_PROMPT,
-    prompt: dedent`
-      <candidates>
-        ${JSON.stringify(candidates, null, 2)}
-      </candidates>
-
-      Select the best candidate and return your choice as a JSON object.
-      Remember: prefer natural speech boundaries over exact duration targets.
-    `,
-  });
-
-  const chosen = candidates.find(c => c.id === object.candidateId) ?? candidates[0];
-  const startTime = clamp(object.startTime, chosen.startTime, chosen.endTime - 5);
-  const endTime = clamp(object.endTime, startTime + 5, chosen.endTime);
-
-  return {
-    startTime,
-    endTime,
-    trackId: track.id,
-    languageCode: track.language_code ?? undefined,
-    rationale: object.rationale,
-  };
-}
-
-/**
  * Get a preview-ready clip suggestion with instant clip audio URL.
  * This is designed for the preview flow - it returns everything needed to
  * render a Remotion Player preview instantly without waiting for a render.
@@ -364,19 +294,34 @@ export async function getPreviewClipAction(assetId: string): Promise<PreviewClip
           rationale: z.string(),
         });
 
-        const { object } = await generateObject({
-          model: openai("gpt-5.2"),
-          schema: SuggestSchema,
-          system: CLIP_SELECTION_SYSTEM_PROMPT,
-          prompt: dedent`
-            <candidates>
-              ${JSON.stringify(candidates, null, 2)}
-            </candidates>
+        const client = buildGenAIClient(env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY!);
+        const response = await client.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: [{
+            role: "user",
+            parts: [{
+              text: dedent`
+                ${CLIP_SELECTION_SYSTEM_PROMPT}
 
-            Select the best candidate and return your choice as a JSON object.
-            Remember: prefer natural speech boundaries over exact duration targets.
-          `,
+                <candidates>
+                  ${JSON.stringify(candidates, null, 2)}
+                </candidates>
+
+                Select the best candidate and return your choice as a JSON object
+                with keys: candidateId, startTime, endTime, rationale.
+                Remember: prefer natural speech boundaries over exact duration targets.
+              `,
+            }],
+          }],
+          config: { responseMimeType: "application/json" },
         });
+
+        const raw = response.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!raw)
+          throw new Error("No clip suggestion returned");
+
+        const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+        const object = SuggestSchema.parse(JSON.parse(cleaned));
 
         const chosen = candidates.find(c => c.id === object.candidateId) ?? candidates[0];
         startTime = clamp(object.startTime, chosen.startTime, chosen.endTime - 5);
