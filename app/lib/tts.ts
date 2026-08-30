@@ -164,6 +164,11 @@ export function voiceForHost(host: TtsHost | string, index = 0): string {
   return FALLBACK_VOICES[index % FALLBACK_VOICES.length];
 }
 
+/** Test seam: the resolver is internal, but its behaviour is worth asserting. */
+export function voiceForHostPublic(host: TtsHost, index: number): string {
+  return voiceForHost(host, index);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // WAV encoding (24 kHz, 16-bit, mono)
 // ─────────────────────────────────────────────────────────────────────────────
