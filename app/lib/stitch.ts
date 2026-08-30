@@ -8,6 +8,23 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 /**
+ * Path to the ffmpeg binary.
+ *
+ * Serverless hosts have no system ffmpeg, so the bundled static build is used
+ * when present and a system install is the fallback for local development.
+ * `ffmpeg-static` resolves to null on unsupported platforms, hence the guard.
+ */
+const FFMPEG = (() => {
+  try {
+    // eslint-disable-next-line ts/no-require-imports
+    const bundled = require("ffmpeg-static") as string | null;
+    return bundled ?? "ffmpeg";
+  } catch {
+    return "ffmpeg";
+  }
+})();
+
+/**
  * Concatenates video clips into a single output file using ffmpeg.
  * Uses the concat demuxer for fast, lossless concatenation when codecs match.
  *
@@ -46,7 +63,7 @@ export async function stitchClips(
   try {
     // First try lossless concat (fast, works when codecs match)
     console.log("[stitch] Attempting lossless concat to:", output);
-    await execFileAsync("ffmpeg", [
+    await execFileAsync(FFMPEG, [
       "-y",
       "-f",
       "concat",
@@ -61,7 +78,7 @@ export async function stitchClips(
   } catch (concatErr) {
     // Fallback: re-encode if codecs don't match
     console.warn("[stitch] Lossless concat failed, falling back to re-encode:", concatErr);
-    await execFileAsync("ffmpeg", [
+    await execFileAsync(FFMPEG, [
       "-y",
       "-f",
       "concat",
@@ -118,7 +135,7 @@ export async function extractFrame(
   const outputPath = path.join(tmpDir, `frame-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`);
 
   console.log("[stitch] Extracting frame at", timeSeconds, "s from:", videoPath);
-  await execFileAsync("ffmpeg", [
+  await execFileAsync(FFMPEG, [
     "-y",
     "-ss",
     String(timeSeconds),

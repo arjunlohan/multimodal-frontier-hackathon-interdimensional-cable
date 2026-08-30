@@ -439,7 +439,7 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
       expect(execFile).toHaveBeenCalledTimes(2);
 
       const reencodeArgs = vi.mocked(execFile).mock.calls[1];
-      expect(reencodeArgs[0]).toBe("ffmpeg");
+      expect(String(reencodeArgs[0])).toMatch(/(^|[\\/])ffmpeg(\.exe)?$/);
       const commandFlags = reencodeArgs[1] as string[];
 
       // Check required broadcast flags: 48kHz audio (-ar 48000), aac audio (-c:a aac), 128k bitrate (-b:a 128k)

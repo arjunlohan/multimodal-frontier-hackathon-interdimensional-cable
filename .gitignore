@@ -53,3 +53,4 @@ next-env.d.ts
 .cloud-sql-url
 cloud-sql-proxy
 *.pre-cloud-sql.bak
+.cloud-sql-prod-url

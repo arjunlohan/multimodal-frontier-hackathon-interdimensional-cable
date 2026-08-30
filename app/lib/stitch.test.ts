@@ -76,7 +76,7 @@ describe("stitch", () => {
     expect(execFile).toHaveBeenCalledTimes(1);
 
     const callArgs = vi.mocked(execFile).mock.calls[0];
-    expect(callArgs[0]).toBe("ffmpeg");
+    expect(String(callArgs[0])).toMatch(/(^|[\\/])ffmpeg(\.exe)?$/);
     expect(callArgs[1]).toEqual([
       "-y",
       "-f",
@@ -122,7 +122,7 @@ describe("stitch", () => {
 
     // Verify fallback command contains 48 kHz broadcast audio normalization
     const reencodeArgs = vi.mocked(execFile).mock.calls[1];
-    expect(reencodeArgs[0]).toBe("ffmpeg");
+    expect(String(reencodeArgs[0])).toMatch(/(^|[\\/])ffmpeg(\.exe)?$/);
     expect(reencodeArgs[1]).toEqual([
       "-y",
       "-f",
@@ -167,7 +167,7 @@ describe("stitch", () => {
       expect(framePath.endsWith(".png")).toBe(true);
 
       const callArgs = vi.mocked(execFile).mock.calls[0];
-      expect(callArgs[0]).toBe("ffmpeg");
+      expect(String(callArgs[0])).toMatch(/(^|[\\/])ffmpeg(\.exe)?$/);
       expect(callArgs[1]).toEqual([
         "-y",
         "-ss",
