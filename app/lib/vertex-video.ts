@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import { Buffer } from "node:buffer";
 
+import { MissingApiKeyError, resolveVertexKey } from "./api-keys";
 import { env } from "./env";
 
 /**
@@ -47,10 +48,10 @@ const POLL_INTERVAL_MS = 10_000;
 const MAX_POLLS = 45;
 
 function config() {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   const project = env.GOOGLE_CLOUD_PROJECT;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is required for video generation");
+    throw new MissingApiKeyError();
   }
   if (!project) {
     throw new Error(

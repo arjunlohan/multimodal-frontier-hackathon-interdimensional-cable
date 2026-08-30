@@ -1,8 +1,8 @@
 import { ThinkingLevel } from "@google/genai";
 
-import { env } from "@/app/lib/env";
 import { getDefaultShowSkill } from "@/app/lib/skills/registry";
 
+import { MissingApiKeyError, requiresUserApiKeys, resolveVertexKey } from "../api-keys";
 import { buildGenAIClient } from "../genai";
 
 import { ResearchBriefSchema } from "./schemas";
@@ -19,7 +19,7 @@ import type {
 import type { GoogleGenAI } from "@google/genai";
 
 function getClient(): GoogleGenAI | null {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
     return null;
   }
@@ -363,6 +363,12 @@ export async function runPass1Research(
 
   const client = getClient();
   if (!client) {
+    // The mock brief invents its own sources. That is a fine offline convenience
+    // for local development, but on a deployment that requires visitor keys it
+    // would hand someone a fabricated show labelled as grounded research.
+    if (requiresUserApiKeys()) {
+      throw new MissingApiKeyError();
+    }
     console.warn("[pass1-research] Gemini API key not found. Falling back to deterministic mock brief.");
     const brief = createMockResearchBrief(input);
     return {

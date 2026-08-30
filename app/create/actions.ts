@@ -4,6 +4,12 @@ import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import {
+  encryptApiKeys,
+  looksLikeGoogleKey,
+  MissingApiKeyError,
+  requiresUserApiKeys,
+} from "@/app/lib/api-keys";
 import { env } from "@/app/lib/env";
 import * as schema from "@/db/schema";
 import type { ShowTemplate } from "@/db/schema";
@@ -40,6 +46,9 @@ interface CreateShowInput {
   durationSeconds: number;
   familiarity: string;
   useFrameChaining?: boolean;
+  /** Visitor-supplied Google API keys. Required when REQUIRE_USER_API_KEYS is on. */
+  vertexKey?: string;
+  geminiKey?: string;
 }
 
 interface CreateShowResult {
@@ -72,6 +81,22 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
     return { error: "Invalid familiarity level." };
   }
 
+  // Model inference is the dominant running cost, so a public deployment makes
+  // the visitor bring their own key and Google bills them directly.
+  const vertexKey = formData.vertexKey?.trim();
+  if (requiresUserApiKeys()) {
+    if (!vertexKey) {
+      return { error: new MissingApiKeyError().message };
+    }
+    if (!looksLikeGoogleKey(vertexKey)) {
+      return { error: "That does not look like a Google API key. Vertex keys start with \"AQ.\" and Gemini API keys with \"AIza\"." };
+    }
+  }
+
+  const encryptedApiKeys = vertexKey ?
+      encryptApiKeys({ vertexKey, geminiKey: formData.geminiKey?.trim() || undefined }) :
+    null;
+
   try {
     const [show] = await db
       .insert(schema.generatedShows)
@@ -83,6 +108,7 @@ export async function createShowAction(formData: CreateShowInput): Promise<Creat
         familiarity: formData.familiarity,
         useFrameChaining: formData.useFrameChaining ?? false,
         status: "pending",
+        encryptedApiKeys,
         // Without this the dramaturgy orchestrator skips the personalization
         // branch entirely, so the memory bank is recalled and displayed but
         // never reaches a generated episode.

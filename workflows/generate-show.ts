@@ -159,7 +159,9 @@ async function markFailedStep(showId: string, errorMessage: string): Promise<voi
   const isSpecific = stored.length > 0 && stored !== "Show generation failed";
 
   await db.update(schema.generatedShows)
-    .set({ status: "failed", error: isSpecific ? stored : errorMessage })
+    // Terminal state: the visitor's API keys have no further use, so they stop
+    // being stored at all.
+    .set({ status: "failed", error: isSpecific ? stored : errorMessage, encryptedApiKeys: null })
     .where(eq(schema.generatedShows.id, showId));
 }
 
@@ -219,11 +221,47 @@ async function checkShowFormatStep(showId: string): Promise<{ isAudioPodcast: bo
 // Step 1: Research
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// API key scope
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Runs `fn` with the show's own Google API keys in scope.
+ *
+ * A durable run spans multiple invocations, so AsyncLocalStorage set when the
+ * run was created is long gone by the time a later step executes. Each
+ * model-calling step therefore reloads and decrypts the keys itself. Falls
+ * through to the server's own key when the show carries none, which is what
+ * local development does.
+ */
+async function runWithShowKeys<T>(showId: string, fn: () => Promise<T>): Promise<T> {
+  const { eq } = await import("drizzle-orm");
+  const { db, schema } = await getDb();
+  const { decryptApiKeys, withUserApiKeys } = await import("@/app/lib/api-keys");
+
+  const row = await db.query.generatedShows.findFirst({
+    where: eq(schema.generatedShows.id, showId),
+    columns: { encryptedApiKeys: true },
+  });
+
+  const keys = decryptApiKeys(row?.encryptedApiKeys);
+  return keys ? withUserApiKeys(keys, fn) : fn();
+}
+
+/** Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates. */
 async function researchStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
 ): Promise<void> {
   "use step";
+  return runWithShowKeys(showId, () => researchStepImpl(progress, showId));
+}
+
+async function researchStepImpl(
+  progress: WritableStream<ProgressEvent>,
+  showId: string,
+): Promise<void> {
   await writeToStream(progress, { type: "current", step: "research" });
 
   const { eq } = await import("drizzle-orm");
@@ -319,11 +357,20 @@ async function researchStep(
 // Step 2: Script
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates. */
 async function scriptStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
 ): Promise<void> {
   "use step";
+  return runWithShowKeys(showId, () => scriptStepImpl(progress, showId));
+}
+
+async function scriptStepImpl(
+  progress: WritableStream<ProgressEvent>,
+  showId: string,
+): Promise<void> {
   await writeToStream(progress, { type: "current", step: "script" });
 
   const { eq } = await import("drizzle-orm");
@@ -377,11 +424,20 @@ async function scriptStep(
 // Audio Podcast Synthesis (Long-form up to 5 min with Gemini 3.1 Flash TTS)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates. */
 async function audioPodcastSynthesisStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
 ): Promise<void> {
   "use step";
+  return runWithShowKeys(showId, () => audioPodcastSynthesisStepImpl(progress, showId));
+}
+
+async function audioPodcastSynthesisStepImpl(
+  progress: WritableStream<ProgressEvent>,
+  showId: string,
+): Promise<void> {
   await writeToStream(progress, { type: "current", step: "generate-clips" });
 
   const { eq } = await import("drizzle-orm");
@@ -447,11 +503,20 @@ async function audioPodcastSynthesisStep(
  *   4. Employs multi-turn scene extension by propagating previousInteractionId across turns
  * When OFF: generates clips with reference images and interactionId scene extensions.
  */
+/** Step boundary. Re-establishes the run's API-key context, which does not
+ *  survive across separate step invocations, then delegates. */
 async function frameChainAndGenerateClipsStep(
   progress: WritableStream<ProgressEvent>,
   showId: string,
 ): Promise<void> {
   "use step";
+  return runWithShowKeys(showId, () => frameChainAndGenerateClipsStepImpl(progress, showId));
+}
+
+async function frameChainAndGenerateClipsStepImpl(
+  progress: WritableStream<ProgressEvent>,
+  showId: string,
+): Promise<void> {
 
   const { eq } = await import("drizzle-orm");
   const { db, schema } = await getDb();
@@ -971,6 +1036,8 @@ async function uploadStep(
   await db.update(schema.generatedShows)
     .set({
       status: "ready",
+      // Terminal state: stop storing the visitor's keys.
+      encryptedApiKeys: null,
       muxAssetId: assetId,
       muxPlaybackId: playbackId,
       error: null,

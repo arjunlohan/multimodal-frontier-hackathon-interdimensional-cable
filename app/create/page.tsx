@@ -1,4 +1,5 @@
 import { Header } from "@/app/components/header";
+import { requiresUserApiKeys } from "@/app/lib/api-keys";
 
 import { getTemplatesAction } from "./actions";
 import { CreateForm } from "./create-form";
@@ -28,7 +29,7 @@ export default async function CreatePage() {
             </h2>
           </div>
 
-          <CreateForm templates={templates} />
+          <CreateForm templates={templates} requiresApiKey={requiresUserApiKeys()} />
         </div>
       </main>
     </div>

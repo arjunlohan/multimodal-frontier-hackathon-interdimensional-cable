@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import { Buffer } from "node:buffer";
 
-import { env } from "./env";
+import { MissingApiKeyError, resolveVertexKey } from "./api-keys";
 import { buildGenAIClient } from "./genai";
 
 import type { GoogleGenAI } from "@google/genai";
@@ -11,9 +11,9 @@ import type { GoogleGenAI } from "@google/genai";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getClient(): GoogleGenAI {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for TTS");
+    throw new MissingApiKeyError();
   }
   return buildGenAIClient(apiKey);
 }

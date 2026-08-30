@@ -1,5 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
+import { MissingApiKeyError, resolveVertexKey } from "./api-keys";
 import { env } from "./env";
 
 /**
@@ -43,13 +44,15 @@ export async function generateChatText(options: {
   prompt?: string;
   model?: string;
   thinkingLevel?: ThinkingLevel;
-  /** Ground the answer in live Google Search results. Cannot be combined with
-   *  responseMimeType: "application/json" — the API rejects that pairing. */
+  /**
+   * Ground the answer in live Google Search results. Cannot be combined with
+   *  responseMimeType: "application/json" — the API rejects that pairing.
+   */
   useSearch?: boolean;
 }): Promise<string> {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required");
+    throw new MissingApiKeyError();
   }
 
   const contents = options.messages?.length ?

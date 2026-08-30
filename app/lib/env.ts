@@ -46,6 +46,12 @@ const EnvSchema = z.object({
   GEMINI_VIDEO_API_KEY: optionalString("Gemini Developer API key used only for video generation. When set, video uses GEMINI_VIDEO_MODEL on the Developer API instead of Vertex."),
   GEMINI_VIDEO_MODEL: optionalString("Developer API video model (default gemini-omni-1.1-flash). Only used with GEMINI_VIDEO_API_KEY."),
 
+  // Bring-your-own-key. On a public deployment the visitor supplies the Google
+  // key and Google bills them directly, so strangers cannot spend the owner's
+  // inference credits. Leave unset for local development.
+  REQUIRE_USER_API_KEYS: optionalString("Set to \"true\" to require visitors to supply their own Google API key before generating."),
+  KEY_ENCRYPTION_SECRET: optionalString("Secret used to encrypt visitor API keys at rest. Required when REQUIRE_USER_API_KEYS is true. Generate with: openssl rand -base64 32"),
+
   // ElevenLabs API key (optional; required only if you want to use translateAudio)
   ELEVENLABS_API_KEY: optionalString("ElevenLabs API key for translateAudio workflow."),
 

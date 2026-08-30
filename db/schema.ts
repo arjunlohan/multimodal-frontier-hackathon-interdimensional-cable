@@ -109,6 +109,9 @@ export const generatedShows = pgTable("generated_shows", {
   // Path to the finished local render, handed from the stitch/synthesis step to the
   // upload step. Previously stashed in `error`, which lost it on upload retries.
   localRenderPath: text("local_render_path"),
+  // Visitor-supplied Google API keys, AES-256-GCM encrypted. Present only while
+  // a run is in flight; cleared the moment it reaches a terminal state.
+  encryptedApiKeys: text("encrypted_api_keys"),
   researchContext: text("research_context"),
   transcript: text("transcript"),
   transcriptSegments: jsonb("transcript_segments"), // [{speaker, text, startTime, endTime}]

@@ -1,22 +1,23 @@
-import { GoogleGenAI } from "@google/genai";
-
-import { buildGenAIClient } from "../app/lib/genai";
 import { and, cosineDistance, desc, eq, gt, sql } from "drizzle-orm";
 
-import { env } from "@/app/lib/env";
+import { MissingApiKeyError, resolveVertexKey } from "@/app/lib/api-keys";
 import { getPlaybackIdForAsset } from "@/app/lib/mux";
 import { checkRateLimit, getClientIp } from "@/app/lib/rate-limit";
 
+import { buildGenAIClient } from "../app/lib/genai";
+
 import { db, videoChunks, videos } from "./index";
+
+import type { GoogleGenAI } from "@google/genai";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Client & Embedding Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getClient(): GoogleGenAI {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for Google text embeddings");
+    throw new MissingApiKeyError();
   }
   return buildGenAIClient(apiKey);
 }

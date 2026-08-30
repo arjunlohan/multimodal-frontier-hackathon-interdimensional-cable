@@ -1,6 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
-import { buildGenAIClient } from "./genai";
 import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -12,6 +9,11 @@ import * as schema from "@/db/schema";
 import type { ChatMessage, ShowTangent, UserMemory } from "@/db/schema";
 import { searchVideoChunks } from "@/db/search";
 
+import { MissingApiKeyError, resolveVertexKey } from "./api-keys";
+import { buildGenAIClient } from "./genai";
+
+import type { GoogleGenAI } from "@google/genai";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Database & Gemini Client
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,9 +22,9 @@ const pool = new Pool({ connectionString: env.DATABASE_URL });
 const db = drizzle(pool, { schema });
 
 function getGenAIClient(): GoogleGenAI {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY required for Memory Bank");
+    throw new MissingApiKeyError();
   }
   return buildGenAIClient(apiKey);
 }

@@ -1,8 +1,9 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { buildGenAIClient } from "../genai";
+import { ThinkingLevel } from "@google/genai";
 
-import { env } from "@/app/lib/env";
 import type { ShowSkill } from "@/app/lib/skills/types";
+
+import { resolveVertexKey } from "../api-keys";
+import { buildGenAIClient } from "../genai";
 
 import { FinalScriptSchema } from "./schemas";
 import type {
@@ -16,8 +17,10 @@ import type {
   VeoRaiSanitizationReport,
 } from "./types";
 
+import type { GoogleGenAI } from "@google/genai";
+
 function getClient(): GoogleGenAI | null {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
     return null;
   }

@@ -1,8 +1,8 @@
 import { ThinkingLevel } from "@google/genai";
 
-import { env } from "@/app/lib/env";
 import { calculateClipWordBudgets } from "@/app/lib/skills/archetype-a";
 
+import { resolveVertexKey } from "../api-keys";
 import { buildGenAIClient } from "../genai";
 
 import { HeadWriterDraftSchema } from "./schemas";
@@ -19,7 +19,7 @@ import type {
 import type { GoogleGenAI } from "@google/genai";
 
 function getClient(): GoogleGenAI | null {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
     return null;
   }

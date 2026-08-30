@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { ThinkingLevel, VideoGenerationReferenceType } from "@google/genai";
 
+import { MissingApiKeyError, resolveGeminiDeveloperKey, resolveVertexKey } from "./api-keys";
 import { env } from "./env";
 import { buildDeveloperApiClient, buildGenAIClient } from "./genai";
 
@@ -98,9 +99,9 @@ export class VeoRAIFilterError extends OmniRAIFilterError {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getClient(): GoogleGenAI {
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = resolveVertexKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required for video generation");
+    throw new MissingApiKeyError();
   }
   return buildGenAIClient(apiKey);
 }
@@ -358,7 +359,7 @@ async function callOmniOnce(
 
   // A dedicated Developer-API video key gets its own client and model.
   const videoClient = hasDedicatedVideoKey() ?
-      buildDeveloperApiClient(env.GEMINI_VIDEO_API_KEY!) :
+      buildDeveloperApiClient(resolveGeminiDeveloperKey()!) :
     client;
   const videoModel = hasDedicatedVideoKey() ?
       (env.GEMINI_VIDEO_MODEL ?? GEMINI_OMNI_VIDEO_MODEL) :
@@ -469,14 +470,14 @@ async function callOmniOnce(
  * explicit rather than sniffed from the key format.
  */
 function hasDedicatedVideoKey(): boolean {
-  return Boolean(env.GEMINI_VIDEO_API_KEY);
+  return Boolean(resolveGeminiDeveloperKey());
 }
 
 function shouldUseVertexVideoRest(): boolean {
   if (hasDedicatedVideoKey()) {
     return false;
   }
-  const apiKey = env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY ?? "";
+  const apiKey = resolveVertexKey() ?? "";
   return Boolean(env.GOOGLE_CLOUD_PROJECT) && (env.GOOGLE_GENAI_USE_VERTEX === "true" || apiKey.startsWith("AQ."));
 }
 

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { getRun, start } from "workflow/api";
 import { z } from "zod";
 
+import { resolveVertexKey } from "@/app/lib/api-keys";
 import { env } from "@/app/lib/env";
 import { buildGenAIClient } from "@/app/lib/genai";
 import { findTextTrack, getMuxAudioUrl, getPlaybackIdForAsset, getTrackVtt } from "@/app/lib/mux";
@@ -294,7 +295,7 @@ export async function getPreviewClipAction(assetId: string): Promise<PreviewClip
           rationale: z.string(),
         });
 
-        const client = buildGenAIClient(env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY!);
+        const client = buildGenAIClient(resolveVertexKey()!);
         const response = await client.models.generateContent({
           model: "gemini-3.7-flash",
           contents: [{

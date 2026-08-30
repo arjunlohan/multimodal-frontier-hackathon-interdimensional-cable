@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import type { StoredKeys } from "@/app/components/api-key-panel";
+import { ApiKeyPanel, readStoredKeys } from "@/app/components/api-key-panel";
 import type { ShowTemplate } from "@/db/schema";
 
 import { createShowAction } from "./actions";
@@ -20,9 +22,11 @@ const STEPS = [
 
 interface CreateFormProps {
   templates: ShowTemplate[];
+  /** True when this deployment requires the visitor to bring their own key. */
+  requiresApiKey: boolean;
 }
 
-export function CreateForm({ templates }: CreateFormProps) {
+export function CreateForm({ templates, requiresApiKey }: CreateFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -35,6 +39,7 @@ export function CreateForm({ templates }: CreateFormProps) {
   const [familiarity, setFamiliarity] = useState("familiar");
   const [useFrameChaining, setUseFrameChaining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<StoredKeys | null>(null);
 
   const selectedTemplate = templates.find(t => t.id === templateId);
 
@@ -71,6 +76,9 @@ export function CreateForm({ templates }: CreateFormProps) {
 
     setError(null);
     startTransition(async () => {
+      // Read through to storage as well: the panel may not have reported yet on
+      // a fresh load, and submitting without the key would fail for no reason.
+      const keys = apiKeys ?? readStoredKeys();
       const result = await createShowAction({
         templateId,
         topic: topic.trim(),
@@ -78,6 +86,8 @@ export function CreateForm({ templates }: CreateFormProps) {
         durationSeconds,
         familiarity,
         useFrameChaining,
+        vertexKey: keys?.vertexKey,
+        geminiKey: keys?.geminiKey,
       });
 
       if (result.error) {
@@ -388,6 +398,18 @@ export function CreateForm({ templates }: CreateFormProps) {
           </div>
         )}
       </div>
+
+      {/*
+        When a key is mandatory it is shown from the first step: discovering the
+        requirement only after filling in four steps would be a poor trade for
+        the visitor. When it is optional it sits with the final action, next to
+        the point where cost is actually incurred.
+      */}
+      {(requiresApiKey || step === 4) && (
+        <div className="mt-8">
+          <ApiKeyPanel required={requiresApiKey} onChange={setApiKeys} />
+        </div>
+      )}
 
       {/* Navigation Buttons */}
       <div className="mt-8 flex items-center justify-between">
