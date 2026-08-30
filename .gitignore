@@ -48,3 +48,8 @@ next-env.d.ts
 # agent scratch
 .agents/
 .claude/
+
+# cloud sql
+.cloud-sql-url
+cloud-sql-proxy
+*.pre-cloud-sql.bak

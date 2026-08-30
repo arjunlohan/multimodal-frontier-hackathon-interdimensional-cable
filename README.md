@@ -68,10 +68,10 @@ flowchart TB
         MuxDelivery["Mux · direct upload + HLS playback"]
     end
 
-    subgraph DataLayer ["State & Persistence Layer (PostgreSQL + pgvector)"]
+    subgraph DataLayer ["Google Cloud SQL for PostgreSQL 16 + pgvector"]
         DBSchema["Shows, Clips, Transcripts, Chat Messages"]
         DBMemory["Agent Memory Bank & User Preferences"]
-        DBVector["Google text-embedding-004 (768-dim Vector Index)"]
+        DBVector["text-embedding-004 vectors (768-dim, HNSW cosine index)"]
     end
 
     UserUI --> DramaturgyAgent
@@ -95,6 +95,19 @@ flowchart TB
 
 ---
 
+## ☁️ Google Cloud Footprint
+
+| Requirement                                    | Satisfied by                                                                                                                                                              | Evidence                                             |
+| :--------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------- |
+| Gemini 3.5 or newer via Gemini API / Vertex AI | **Gemini 3.7 Flash** for research, scripting and memory extraction; **Gemini 3.1 Flash TTS**; **text-embedding-004**                                                      | `app/lib/genai.ts`, `app/lib/tts.ts`, `db/search.ts` |
+| A Google agent framework                       | **Google GenAI SDK** (`@google/genai`) across 9 runtime modules — grounding, thinking level, structured output, embeddings, multi-speaker speech config, video operations | `app/lib/genai.ts` and callers                       |
+| A Google Cloud infrastructure service          | **Cloud SQL for PostgreSQL 16** with `pgvector` 0.8.5, holding every show, transcript, chat message, memory record and embedding                                          | `scripts/provision-cloud-sql.sh`, `db/index.ts`      |
+| Bonus model integration                        | **Veo 3.1** (`veo-3.1-generate-001`) on Vertex AI generates every video clip                                                                                              | `app/lib/vertex-video.ts`                            |
+
+Instance `ic-pg` runs in `us-central1` on project `gen-lang-client-0573852365`.
+
+---
+
 ## 🛠️ Google Agentic & Gemini Stack
 
 | Component                      | Technology                                                                                               | Purpose                                                                                                                                                                                                                                                                                                                                                                   |
@@ -106,6 +119,7 @@ flowchart TB
 | **Vector Embeddings**          | **Google `text-embedding-004`** (768 dimensions)                                                         | Transcript chunk embeddings and semantic vector search in PostgreSQL.                                                                                                                                                                                                                                                                                                     |
 | **Memory Extraction**          | **Gemini 3.7 Flash**                                                                                     | Autonomous extraction of concept mastery, humor preferences, and listener insights.                                                                                                                                                                                                                                                                                       |
 | **Autonomous Coordinator**     | **Custom coordinator** (`scripts/autonomous-trend-agent.ts`) on the **Google GenAI SDK**                 | Pulls Hacker News top stories, ranks against the memory profile with Gemini 3.7 Flash structured output, provisions the show, dispatches the durable workflow.                                                                                                                                                                                                            |
+| **Application State**          | **Google Cloud SQL for PostgreSQL 16** (`pgvector`, HNSW cosine index)                                   | Every show, transcript, chat message, memory record and embedding. Reached through the Cloud SQL Auth Proxy.                                                                                                                                                                                                                                                              |
 | **Video Delivery & Streaming** | **Mux Video + HLS**                                                                                      | Adaptive bitrate streaming and multi-language track management.                                                                                                                                                                                                                                                                                                           |
 | **Video Compositor**           | **FFmpeg** (`app/lib/stitch.ts`)                                                                         | Local concat-demuxer stitching with a 48 kHz AAC re-encode fallback. Remotion Lambda (AWS) renders the separate legacy social-clip feature and is **not** on the show path.                                                                                                                                                                                               |
 
@@ -117,7 +131,10 @@ flowchart TB
 
 - Node.js 24.11.0 (see `.nvmrc`)
 - `ffmpeg` on PATH (used to stitch clips: `brew install ffmpeg`)
-- PostgreSQL 16 with the `pgvector` extension enabled
+- A Google Cloud project with billing enabled, and the `gcloud` CLI
+  (`brew install --cask google-cloud-sdk`)
+- PostgreSQL 16 with the `pgvector` extension — provisioned on Cloud SQL by
+  `./scripts/provision-cloud-sql.sh`, or run locally for development
 - Google Gemini API Key (`GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`)
 - Mux API credentials (`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`)
 
@@ -136,7 +153,30 @@ cp .env.example .env.local
 # Edit .env.local with your GEMINI_API_KEY, DATABASE_URL, and MUX credentials
 ```
 
-### 3. Database Migration & Template Seeding
+### 3. Provision Google Cloud SQL
+
+The application's state layer runs on **Cloud SQL for PostgreSQL 16** with `pgvector`.
+
+```bash
+# One-time: authenticate (both are required — they are separate consent flows)
+gcloud auth login
+gcloud auth application-default login
+
+# Creates the instance and database, enables pgvector, starts the Auth Proxy
+./scripts/provision-cloud-sql.sh
+
+# Copies local data across, verifies nothing was lost, repoints DATABASE_URL
+./scripts/migrate-to-cloud-sql.sh
+```
+
+Both scripts are idempotent. The migration refuses to switch `DATABASE_URL`
+unless every row arrives intact.
+
+To develop against local Postgres instead, set `DATABASE_URL` to a local
+connection string and run the migrations below — the application code is
+identical either way.
+
+### 4. Database Migration & Template Seeding
 
 ```bash
 # Run database migrations (creates pgvector tables, memory bank, and shows)
@@ -146,7 +186,7 @@ npm run db:migrate
 npm run seed-templates
 ```
 
-### 4. Launch the Application
+### 5. Launch the Application
 
 ```bash
 # Start the development server
@@ -154,7 +194,7 @@ npm run dev
 # Visit http://localhost:3000
 ```
 
-### 5. Run the Autonomous Taskmaster Agent
+### 6. Run the Autonomous Taskmaster Agent
 
 ```bash
 # Triggers the autonomous news discovery, memory matching, and show generation agent
