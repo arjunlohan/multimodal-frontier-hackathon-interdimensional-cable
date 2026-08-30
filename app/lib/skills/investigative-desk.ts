@@ -9,7 +9,7 @@ export const investigativeDeskSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Erudite, high-velocity investigative monologue combining righteous moral outrage with cascading, hyper-specific absurdist analogies and theatrical set-pieces.",
-  referenceImageUrl: "/templates/john-oliver.png",
+  referenceImageUrl: "/templates/investigative-desk.png",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 3.5, max: 4.8 },
@@ -49,7 +49,7 @@ export const investigativeDeskSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "John Oliver",
+      name: "John Olive",
       role: "anchor",
       position: "center",
       ttsVoice: "Charon",

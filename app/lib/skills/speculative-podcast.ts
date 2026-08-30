@@ -8,7 +8,7 @@ export const speculativePodcastSkill: ShowSkill = {
   showType: "conversation",
   description:
     "Lightly-prepped, wide-ranging conversational podcast diving into extreme human performance, primal biology, ancient history, and cosmic dread with earnest wonder.",
-  referenceImageUrl: "/templates/joe-rogan.png",
+  referenceImageUrl: "/templates/speculative-frontier.svg",
   rhetoricalSpine: {
     acts: [
       {
@@ -98,7 +98,7 @@ export const speculativePodcastSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "Joe",
+      name: "Joe Brogan",
       role: "lead_host",
       position: "left",
       ttsVoice: "Fenrir",
@@ -116,7 +116,7 @@ export const speculativePodcastSkill: ShowSkill = {
       speakingRateWpm: 145,
     },
     {
-      name: "Duncan",
+      name: "Duncan Trussed",
       role: "guest_theorist",
       position: "right",
       ttsVoice: "Puck",

@@ -356,7 +356,7 @@ describe("two-Archetype Modular Show SKILL Engine", () => {
     it("resolves skills via fuzzy query and smart fallbacks", () => {
       expect(resolveSkillForShow("podcast").archetype).toBe("conversational_podcast");
       expect(resolveSkillForShow("desk").archetype).toBe("writers_room_desk");
-      expect(resolveSkillForShow("Colin Jost").id).toBe("satirical-news-desk");
+      expect(resolveSkillForShow("Colin Jest").id).toBe("satirical-news-desk");
       expect(resolveSkillForShow("Suburban Report").id).toBe("podcast-apocalyptic-satire");
       expect(resolveSkillForShow("random-nonexistent-query")).toBeDefined();
     });

@@ -218,7 +218,7 @@ export interface CreateTangentResult {
 export async function createShowTangentAction(
   showId: string,
   question: string,
-  hostName: string = "John Oliver",
+  hostName: string = "John Olive",
   topic: string,
   userId: string = "default_user",
 ): Promise<CreateTangentResult> {

@@ -9,7 +9,7 @@ export const satiricalNewsSkill: ShowSkill = {
   showType: "conversation",
   description:
     "High-density dual-anchor news desk trading rapid one-liners, deadpan straight-man setups, subversive streetwise reactions, and cross-desk banter.",
-  referenceImageUrl: "/templates/snl-weekend-update.png",
+  referenceImageUrl: "/templates/dual-anchor-desk.png",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 5.0, max: 6.5 },
@@ -48,19 +48,19 @@ export const satiricalNewsSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "Colin Jost",
+      name: "Colin Jest",
       role: "anchor",
       position: "left",
       ttsVoice: "Charon",
       personaCraft:
         "Polished, straight-man anchor delivering deadpan setups with newsroom sincerity. Maintains composure through shocking punchlines and endures good-natured ribbing from his co-anchor.",
       personality:
-        "Clean-cut, preppy Harvard-educated writer. Delivers jokes with a polished, almost news-anchor sincerity that makes the punchlines land harder. Often the straight man to Michael Che's reactions. Tends toward wordplay and clever setups.",
+        "Clean-cut, preppy Harvard-educated writer. Delivers jokes with a polished, almost news-anchor sincerity that makes the punchlines land harder. Often the straight man to Michael Chey's reactions. Tends toward wordplay and clever setups.",
       catchphrases: ["For more on this...", "Really?"],
       speakingRateWpm: 145,
     },
     {
-      name: "Michael Che",
+      name: "Michael Chey",
       role: "anchor",
       position: "right",
       ttsVoice: "Puck",

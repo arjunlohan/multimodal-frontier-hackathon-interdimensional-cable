@@ -8,7 +8,7 @@ export const apocalypticSatireSkill: ShowSkill = {
   showType: "conversation",
   description:
     "Scorched-earth cynical comedy podcast dissecting economic rot, suburban absurdity, and corporate greed with manic high-voltage diatribes.",
-  referenceImageUrl: "/templates/tim-dillon.png",
+  referenceImageUrl: "/templates/apocalyptic-report.svg",
   rhetoricalSpine: {
     acts: [
       {
@@ -98,7 +98,7 @@ export const apocalypticSatireSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "Tim",
+      name: "Tim Villain",
       role: "lead_host",
       position: "left",
       ttsVoice: "Enceladus",

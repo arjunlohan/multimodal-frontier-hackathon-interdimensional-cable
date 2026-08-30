@@ -9,7 +9,7 @@ export const varietyMonologueSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Exuberant, fast-paced variety monologue packed with pop-culture puns, infectious laughter, audience validation, and broad relatable absurdity.",
-  referenceImageUrl: "/templates/john-oliver.png",
+  referenceImageUrl: "/templates/variety-monologue.png",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.2, max: 5.5 },
@@ -48,7 +48,7 @@ export const varietyMonologueSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "Jimmy Fallon",
+      name: "Jimmy Fallout",
       role: "anchor",
       position: "center",
       ttsVoice: "Aoede",

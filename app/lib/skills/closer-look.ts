@@ -9,7 +9,7 @@ export const closerLookSkill: ShowSkill = {
   showType: "monologue",
   description:
     "Sharp, staccato political dissection driven by head-writer wit, quick character impressions, conversational self-audits, and rapid-fire joke tags.",
-  referenceImageUrl: "/templates/seth-meyers.png",
+  referenceImageUrl: "/templates/political-dissection.png",
   rhetoricalSpine: {
     acts: ARCHETYPE_A_STANDARD_ACTS,
     laughPerMinuteTarget: { min: 4.5, max: 5.8 },
@@ -48,7 +48,7 @@ export const closerLookSkill: ShowSkill = {
   },
   hosts: [
     {
-      name: "Seth Meyers",
+      name: "Seth Mires",
       role: "anchor",
       position: "center",
       ttsVoice: "Orus",

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
 import { CloudFootprint, HowItRuns } from "@/app/components/how-it-runs";
+import { listShowSkills } from "@/app/lib/skills/registry";
 
 export default function Home() {
   return (
@@ -34,7 +35,7 @@ export default function Home() {
                 </h1>
 
                 <p className="max-w-2xl text-lg leading-relaxed text-foreground-muted md:text-xl">
-                  Pick a late-night talk show style like John Oliver, Seth Meyers, or SNL Weekend Update.
+                  Pick a late-night format: investigative desk, political dissection, dual-anchor news, variety monologue, or long-form podcast.
                   Give it any topic. An agent researches it, writes it, casts the voices, and produces the episode unattended.
                 </p>
 
@@ -155,26 +156,12 @@ export default function Home() {
             </div>
 
             <div className="mt-6 grid gap-6 md:grid-cols-3">
-              {[
-                {
-                  name: "John Oliver",
-                  type: "MONOLOGUE",
-                  image: "/templates/john-oliver.png",
-                  description: "Deep-dive investigative humor with elaborate analogies that escalate to ridiculous extremes.",
-                },
-                {
-                  name: "Seth Meyers",
-                  type: "MONOLOGUE",
-                  image: "/templates/seth-meyers.png",
-                  description: "Sharp, witty political commentary with surgical precision and dry humor.",
-                },
-                {
-                  name: "Weekend Update",
-                  type: "CONVERSATION",
-                  image: "/templates/snl-weekend-update.png",
-                  description: "Colin Jost and Michael Che trade headlines with contrasting styles — polished vs. loose cannon.",
-                },
-              ].map(show => (
+              {listShowSkills().map(skill => ({
+                name: skill.name,
+                type: skill.showType === "conversation" ? "CONVERSATION" : "MONOLOGUE",
+                image: skill.referenceImageUrl ?? "/templates/investigative-desk.png",
+                description: skill.description ?? "",
+              })).map(show => (
                 <div key={show.name} className="card-brutal overflow-hidden">
                   <div className="relative h-32 overflow-hidden">
                     <img

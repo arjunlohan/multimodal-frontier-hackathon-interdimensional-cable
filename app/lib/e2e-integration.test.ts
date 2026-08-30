@@ -549,7 +549,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       expect(checkShowFormat(41).isAudioPodcast).toBe(true);
 
       const segment = {
-        speaker: "John Oliver",
+        speaker: "John Olive",
         text: "This is completely absurd.",
       };
       const prompt = buildVeoPrompt(segment, [{ name: "John Oliver" }], "monologue", "HBO style");
@@ -693,10 +693,10 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
         expect(validated.id).toBe(skill.id);
       }
 
-      const resolvedDesk = resolveSkillForShow("John Oliver");
+      const resolvedDesk = resolveSkillForShow("John Olive");
       expect(resolvedDesk.id).toBe(investigativeDeskSkill.id);
 
-      const resolvedPodcast = resolveSkillForShow("Joe Rogan");
+      const resolvedPodcast = resolveSkillForShow("Joe Brogan");
       expect(resolvedPodcast.id).toBe(speculativePodcastSkill.id);
     });
   });
@@ -1116,7 +1116,7 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
 
       expect(pass3.finalScript.segments.length).toBeGreaterThanOrEqual(3);
       for (const seg of pass3.finalScript.segments) {
-        expect(seg.speaker).toBe("Seth Meyers");
+        expect(seg.speaker).toBe("Seth Mires");
         expect(seg.text.length).toBeGreaterThan(10);
       }
     });
@@ -1126,9 +1126,9 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       const skill = speculativePodcastSkill;
 
       expect(skill.hosts).toHaveLength(2);
-      expect(skill.hosts[0].name).toBe("Joe");
+      expect(skill.hosts[0].name).toBe("Joe Brogan");
       expect(skill.hosts[0].ttsVoice).toBe("Fenrir");
-      expect(skill.hosts[1].name).toBe("Duncan");
+      expect(skill.hosts[1].name).toBe("Duncan Trussed");
       expect(skill.hosts[1].ttsVoice).toBe("Puck");
 
       const brief = createMockResearchBrief({ topic, showSkill: skill });
@@ -1139,8 +1139,8 @@ describe("master E2E integration test suite: Interdimensional Cable Comedy Orche
       });
 
       expect(draft.turns?.length).toBeGreaterThanOrEqual(3);
-      expect(draft.turns?.some(n => n.speaker === "Joe")).toBe(true);
-      expect(draft.turns?.some(n => n.speaker === "Duncan")).toBe(true);
+      expect(draft.turns?.some(n => n.speaker === "Joe Brogan")).toBe(true);
+      expect(draft.turns?.some(n => n.speaker === "Duncan Trussed")).toBe(true);
 
       const pass3 = await runPass3VoiceAndPrune({
         draft,

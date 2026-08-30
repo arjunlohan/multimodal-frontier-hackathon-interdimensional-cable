@@ -23,6 +23,16 @@ function getClient(): GoogleGenAI {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VOICE_MAP: Record<string, string> = {
+  // Parody hosts, as seeded from the show registry.
+  "John Olive": "Charon",
+  "Seth Mires": "Orus",
+  "Colin Jest": "Charon",
+  "Michael Chey": "Puck",
+  "Jimmy Fallout": "Aoede",
+  "Joe Brogan": "Fenrir",
+  "Duncan Trussed": "Puck",
+  "Tim Villain": "Enceladus",
+  // Retained so shows generated before the rename still resolve a voice.
   "John Oliver": "Charon",
   "Seth Meyers": "Orus",
   "Colin Jost": "Charon",
@@ -320,7 +330,7 @@ export async function generateTts(
  */
 export async function generateSingleVoiceClip(
   text: string,
-  hostOrName: string | TtsHost = "John Oliver",
+  hostOrName: string | TtsHost = "John Olive",
 ): Promise<string> {
   const host: TtsHost = typeof hostOrName === "string" ? { name: hostOrName } : hostOrName;
   const wavBuffer = await generateTts(text, [host]);

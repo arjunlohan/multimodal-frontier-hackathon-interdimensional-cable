@@ -105,7 +105,7 @@ export function TemplateForm({ template }: TemplateFormProps) {
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="e.g., Late Night with John Oliver"
+          placeholder="e.g., Late Night Investigative Desk"
           className="w-full border-3 border-border bg-surface p-4 text-base text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent"
           style={{ fontFamily: "var(--font-space-mono)" }}
         />
