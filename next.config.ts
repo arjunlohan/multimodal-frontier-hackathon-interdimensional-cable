@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  outputFileTracingIncludes: {
+    "/api/**": ["./node_modules/ffmpeg-static/**/*"],
+    "/workflows/**": ["./node_modules/ffmpeg-static/**/*"],
+  },
   turbopack: {
     root: path.join(__dirname, ".."),
   },
