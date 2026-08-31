@@ -684,7 +684,7 @@ export async function generateText(
 
   const response = await client.models.generateContent({
     config: {
-      maxOutputTokens: 8192,
+      maxOutputTokens: 32768,
       systemInstruction,
       temperature: 0.9,
       thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },

@@ -399,7 +399,7 @@ Generate a comprehensive ResearchBrief JSON with verified facts, bizarre stats, 
         temperature: input.options?.temperature ?? 0.75,
         // Large grounded ResearchBrief; 8192 truncated it mid-JSON and silently
         // fell back to the mock. googleSearch is incompatible with responseMimeType.
-        maxOutputTokens: 32768,
+        maxOutputTokens: 65536,
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
         ...(enableSearch ? { tools: [{ googleSearch: {} }] } : {}),
       },

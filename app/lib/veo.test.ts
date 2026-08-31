@@ -63,7 +63,7 @@ describe("veo / gemini omni 1.1 flash engine", () => {
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
-            maxOutputTokens: 8192,
+            maxOutputTokens: 32768,
             temperature: 0.9,
             thinkingConfig: { thinkingLevel: "HIGH" },
           }),

@@ -393,6 +393,25 @@ export function synthesizeDeterministicPodcastDraft(input: Pass2Input): HeadWrit
     },
   ];
 
+  // The turn skeleton above is written for a two-hander. A wider panel would
+  // otherwise leave every host past the second silent, so the non-lead turns are
+  // distributed across the remaining seats. The lead keeps their turns, since
+  // the skeleton's lead lines carry the act structure.
+  const otherHosts = skill.hosts.filter(h => h.name !== leadHost.name);
+  if (otherHosts.length > 1) {
+    let seat = 0;
+    for (const turn of rawTurns) {
+      if (turn.speaker === leadHost.name) {
+        continue;
+      }
+      const host = otherHosts[seat % otherHosts.length];
+      turn.speaker = host.name;
+      turn.role = host.role;
+      turn.voice = host.ttsVoice;
+      seat++;
+    }
+  }
+
   // Calculate proportional turn durations to match durationSeconds
   const avgWps = 2.4;
   const turns: PodcastTurn[] = rawTurns.map((turn, idx) => {
@@ -506,7 +525,7 @@ Write a complete 3-Act HeadWriterDraft with ${clipBudgets.length} ComedicBeats m
         temperature: input.options?.temperature ?? 0.85,
         // 8192 truncated the draft mid-JSON, which silently fell back to the
         // deterministic synthesizer. Force real JSON and give it room to finish.
-        maxOutputTokens: 32768,
+        maxOutputTokens: 65536,
         responseMimeType: "application/json",
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       },
@@ -577,7 +596,7 @@ Construct a dynamic multi-speaker conversation traversing core nodes and tangent
         temperature: input.options?.temperature ?? 0.85,
         // 8192 truncated the draft mid-JSON, which silently fell back to the
         // deterministic synthesizer. Force real JSON and give it room to finish.
-        maxOutputTokens: 32768,
+        maxOutputTokens: 65536,
         responseMimeType: "application/json",
         thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       },
@@ -602,7 +621,7 @@ Construct a dynamic multi-speaker conversation traversing core nodes and tangent
     const validated = HeadWriterDraftSchema.parse(parsed) as HeadWriterDraft;
     return validated;
   } catch (error) {
-    console.warn("[pass2-head-writer] Gemini call failed for podcast, falling back to deterministic synthesis:", error);
+    console.warn("[pass2-head-writer] PODCAST DRAFT FELL BACK TO DETERMINISTIC SYNTHESIS. The episode will follow a fixed skeleton rather than written material. Cause:", error);
     return synthesizeDeterministicPodcastDraft(input);
   }
 }

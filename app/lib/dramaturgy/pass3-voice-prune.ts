@@ -249,7 +249,13 @@ Output ONLY the revised punchline sentence.`;
           contents: [{ role: "user", parts: [{ text: punchUpPrompt }] }],
           config: {
             temperature: 0.9,
-            maxOutputTokens: 100,
+            // Thinking tokens count against this budget, and 3.7 Flash thinks
+            // even with no thinking config set. At 100 the model spent the
+            // entire allowance reasoning, returned an empty candidate with
+            // finishReason MAX_TOKENS, and the length guard below silently
+            // skipped the rewrite on every joke. The output itself is one
+            // sentence; the headroom is for the reasoning that produces it.
+            maxOutputTokens: 8192,
             thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
           },
         });

@@ -44,6 +44,7 @@ export async function generateChatText(options: {
   prompt?: string;
   model?: string;
   thinkingLevel?: ThinkingLevel;
+  maxOutputTokens?: number;
   /**
    * Ground the answer in live Google Search results. Cannot be combined with
    *  responseMimeType: "application/json" — the API rejects that pairing.
@@ -69,6 +70,9 @@ export async function generateChatText(options: {
     config: {
       ...(options.system ? { systemInstruction: options.system } : {}),
       ...(options.useSearch ? { tools: [{ googleSearch: {} }] } : {}),
+      // Explicit rather than inherited: thinking tokens draw on this budget too,
+      // so a default that looks generous for prose can still starve the answer.
+      maxOutputTokens: options.maxOutputTokens ?? 32768,
       thinkingConfig: { thinkingLevel: options.thinkingLevel ?? ThinkingLevel.HIGH },
     },
   });
