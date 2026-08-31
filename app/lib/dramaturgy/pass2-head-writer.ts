@@ -303,7 +303,9 @@ export function synthesizeDeterministicDeskDraft(input: Pass2Input): HeadWriterD
 export function synthesizeDeterministicPodcastDraft(input: Pass2Input): HeadWriterDraft {
   const { researchBrief, skill, durationSeconds } = input;
   const leadHost = skill.hosts.find(h => h.role === "lead_host" || h.role === "anchor") ?? skill.hosts[0] ?? { name: "Joe", role: "lead_host", ttsVoice: "Charon" };
-  const coHost = skill.hosts.find(h => h !== leadHost) ?? { name: "Jamie", role: "co_host_sounding_board", ttsVoice: "Puck" };
+  // A solo format has no second seat. Falling back to an invented "Jamie" gave
+  // single-host shows a phantom co-host, so the lead simply takes every turn.
+  const coHost = skill.hosts.find(h => h !== leadHost) ?? leadHost;
   const topic = researchBrief.topic;
   const angle = researchBrief.selectedAngle;
   const facts = researchBrief.groundedFacts;
@@ -550,6 +552,21 @@ Write a complete 3-Act HeadWriterDraft with ${clipBudgets.length} ComedicBeats m
 
     // Validate with Zod
     const validated = HeadWriterDraftSchema.parse(parsed) as HeadWriterDraft;
+
+    // A one-host format must have exactly one voice. The model will otherwise
+    // address an imagined producer and hand them lines, which then get
+    // synthesized as a second speaker.
+    if (skill.hosts.length === 1 && validated.turns) {
+      const only = skill.hosts[0];
+      for (const turn of validated.turns) {
+        if (turn.speaker !== only.name) {
+          turn.speaker = only.name;
+          turn.role = only.role;
+          turn.ttsVoice = only.ttsVoice;
+        }
+      }
+    }
+
     return validated;
   } catch (error) {
     console.warn("[pass2-head-writer] Gemini call failed for desk show, falling back to deterministic synthesis:", error);
@@ -619,6 +636,21 @@ Construct a dynamic multi-speaker conversation traversing core nodes and tangent
     parsed.selectedPremise = researchBrief.selectedAngle;
 
     const validated = HeadWriterDraftSchema.parse(parsed) as HeadWriterDraft;
+
+    // A one-host format must have exactly one voice. On a solo rant the model
+    // reliably addresses an imagined producer and hands them lines, which would
+    // then be synthesized as a second speaker.
+    if (skill.hosts.length === 1 && validated.turns) {
+      const only = skill.hosts[0];
+      for (const turn of validated.turns) {
+        if (turn.speaker !== only.name) {
+          turn.speaker = only.name;
+          turn.role = only.role;
+          turn.ttsVoice = only.ttsVoice;
+        }
+      }
+    }
+
     return validated;
   } catch (error) {
     console.warn("[pass2-head-writer] PODCAST DRAFT FELL BACK TO DETERMINISTIC SYNTHESIS. The episode will follow a fixed skeleton rather than written material. Cause:", error);

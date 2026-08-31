@@ -126,7 +126,7 @@ export const apocalypticSatireSkill: ShowSkill = {
       snapbackPhrases: [
         "Anyway folks, it's a fake business, but back to the mayor...",
         "What were we even talking about? Oh yeah, the collapse of Western civilization.",
-        "I don't even know why I'm yelling at you, Ben. The point is the hedge fund...",
+        "I don't even know why I'm yelling about this. The point is the hedge fund...",
         "It's truly disgusting. But look at what these people actually did...",
       ],
       thematicAnchors: [

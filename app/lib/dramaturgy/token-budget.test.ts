@@ -100,3 +100,40 @@ describe("panel seat coverage", () => {
     expect(speakers.size).toBe(2);
   });
 });
+
+describe("solo formats have exactly one voice", () => {
+  it("never invents a co-host when a show has a single seat", async () => {
+    const { synthesizeDeterministicPodcastDraft } = await import("./pass2-head-writer");
+    const { createMockResearchBrief } = await import("./pass1-research");
+    const { getShowSkill } = await import("../skills/registry");
+
+    const skill = getShowSkill("apocalyptic-satire")!;
+    expect(skill.hosts.length).toBe(1);
+
+    const draft = synthesizeDeterministicPodcastDraft({
+      researchBrief: createMockResearchBrief({ topic: "Subscription creep", showSkill: skill }),
+      skill,
+      durationSeconds: 180,
+    });
+
+    const speakers = [...new Set(draft.turns?.map(t => t.speaker))];
+    // The regression: the fallback substituted an invented "Jamie" whenever a
+    // show had no second host, giving a solo rant a phantom interlocutor.
+    expect(speakers).toEqual([skill.hosts[0].name]);
+    expect(speakers).not.toContain("Jamie");
+  });
+});
+
+describe("callback metadata never discards a written episode", () => {
+  it("accepts callbacks as objects, as bare strings, and with fields missing", async () => {
+    const { CallbackLinkSchema } = await import("./schemas");
+
+    // All three shapes come back from the model in practice. Requiring the full
+    // object threw during validation and dropped the entire LLM draft in favour
+    // of the deterministic skeleton.
+    expect(CallbackLinkSchema.parse({ plantedInBeatId: "b1", resolvedInBeatId: "b4", motif: "the toaster" }))
+      .toMatchObject({ motif: "the toaster" });
+    expect(CallbackLinkSchema.parse("the toaster")).toMatchObject({ motif: "the toaster" });
+    expect(CallbackLinkSchema.parse({ plantedInBeatId: "b1" })).toMatchObject({ plantedInBeatId: "b1" });
+  });
+});

@@ -164,11 +164,29 @@ export const PodcastTurnSchema = z.object({
   snapbackTriggered: z.boolean().optional(),
 });
 
-export const CallbackLinkSchema = z.object({
-  plantedInBeatId: z.string(),
-  resolvedInBeatId: z.string(),
-  motif: z.string(),
-});
+/**
+ * Callback bookkeeping. Descriptive metadata about which running gag pays off
+ * where — it steers nothing downstream.
+ *
+ * These were required, and the model does not reliably populate every field, so
+ * a single missing string threw during validation and discarded the whole
+ * written episode in favour of the deterministic skeleton. Every generated show
+ * was running on the fallback for want of two optional strings.
+ */
+export const CallbackLinkSchema = z.preprocess(
+  // The model returns this either as an object or as a bare motif string, and
+  // sometimes omits the beat ids entirely. Accept every shape: this is
+  // descriptive bookkeeping about which running gag pays off where, and it
+  // steers nothing downstream. Rejecting it discarded the whole written episode
+  // in favour of the deterministic skeleton, which is how every generated show
+  // ended up on the fallback.
+  value => (typeof value === "string" ? { motif: value } : value),
+  z.object({
+    plantedInBeatId: z.string().default(""),
+    resolvedInBeatId: z.string().default(""),
+    motif: z.string().default(""),
+  }),
+);
 
 export const HeadWriterDraftSchema = z.object({
   archetype: z.enum(["writers_room_desk", "conversational_podcast"]),
