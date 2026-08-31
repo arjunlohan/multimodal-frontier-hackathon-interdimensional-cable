@@ -10,21 +10,51 @@ import type { Buffer } from "node:buffer";
 const execFileAsync = promisify(execFile);
 
 /**
+ * Absolute paths a system ffmpeg is typically installed at.
+ *
+ * Resolution cannot lean on bare `"ffmpeg"` and the PATH: the workflow step
+ * runtime inherits a minimal `/usr/bin:/bin:/usr/sbin:/sbin`, which contains
+ * no Homebrew prefix, so the spawn would fail with ENOENT on a machine that
+ * demonstrably has ffmpeg installed.
+ */
+const SYSTEM_FFMPEG_PATHS = [
+  "/opt/homebrew/bin/ffmpeg", // Homebrew, Apple silicon
+  "/usr/local/bin/ffmpeg", // Homebrew, Intel; common Linux install
+  "/usr/bin/ffmpeg", // distro package
+];
+
+/**
  * Path to the ffmpeg binary.
  *
- * Serverless hosts have no system ffmpeg, so the bundled static build is used
- * when present and a system install is the fallback for local development.
- * `ffmpeg-static` resolves to null on unsupported platforms, hence the guard.
+ * Serverless hosts have no system ffmpeg, so the bundled static build is
+ * preferred and a system install is the fallback for local development.
+ *
+ * The bundled path is existence-checked rather than trusted: the workflow step
+ * runtime rewrites module paths into a sandbox prefix, so `require` there
+ * returns a path the binary was never unpacked to. Trusting it produced an
+ * ENOENT on the stitch step for every locally-run video generation.
  */
 const FFMPEG = (() => {
+  let bundled: string | null = null;
   try {
     // eslint-disable-next-line ts/no-require-imports
-    const bundled = require("ffmpeg-static") as string | null;
-    if (bundled && fs.existsSync(bundled)) return bundled;
-    return "ffmpeg";
+    bundled = require("ffmpeg-static") as string | null;
   } catch {
-    return "ffmpeg";
+    bundled = null;
   }
+
+  if (bundled && fs.existsSync(bundled)) {
+    return bundled;
+  }
+
+  const system = SYSTEM_FFMPEG_PATHS.find(candidate => fs.existsSync(candidate));
+  if (system) {
+    return system;
+  }
+
+  // Nothing found on disk. Fall back to the PATH lookup so a non-standard
+  // install still works, and so the failure names ffmpeg rather than a path.
+  return "ffmpeg";
 })();
 
 /**
