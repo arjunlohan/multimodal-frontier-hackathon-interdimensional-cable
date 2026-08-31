@@ -13,6 +13,12 @@ import { usePlayer } from "@/app/media/[slug]/player/use-player";
 interface DubbingPanelProps {
   transcript: string;
   hosts: Array<{ name: string }>;
+  /**
+   * Per-turn breakdown, needed to dub casts wider than two: Gemini's
+   * multi-speaker TTS takes at most two voices in one call, so a four-handed
+   * panel has to be voiced a turn at a time.
+   */
+  segments?: Array<{ speaker: string; text: string }>;
 }
 
 type DubStatus = "idle" | "generating" | "dubbed" | "error";
@@ -21,7 +27,7 @@ type DubStatus = "idle" | "generating" | "dubbed" | "error";
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function DubbingPanel({ transcript, hosts }: DubbingPanelProps) {
+export function DubbingPanel({ transcript, hosts, segments }: DubbingPanelProps) {
   const { playerRef } = usePlayer();
   const [selectedLang, setSelectedLang] = useState<TargetLanguage>(TARGET_LANGUAGES[0]);
   const [status, setStatus] = useState<DubStatus>("idle");
@@ -82,6 +88,7 @@ export function DubbingPanel({ transcript, hosts }: DubbingPanelProps) {
         body: JSON.stringify({
           transcript,
           hosts,
+          segments,
           targetLang: selectedLang.code,
         }),
       });
@@ -114,7 +121,7 @@ export function DubbingPanel({ transcript, hosts }: DubbingPanelProps) {
       setError(err instanceof Error ? err.message : "Dubbing failed");
       setStatus("error");
     }
-  }, [transcript, hosts, selectedLang, playerRef, cleanupAudio]);
+  }, [transcript, hosts, segments, selectedLang, playerRef, cleanupAudio]);
 
   const restoreOriginal = useCallback(() => {
     cleanupAudio();

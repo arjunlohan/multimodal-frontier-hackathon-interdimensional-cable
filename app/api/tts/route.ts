@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { recordMemorySignal } from "@/app/lib/memory-bank";
-import { generateTts } from "@/app/lib/tts";
+import { generateShowAudio } from "@/app/lib/tts";
 import type { TtsHost } from "@/app/lib/tts";
 
 interface TtsRequestBody {
   transcript: string;
   hosts: TtsHost[];
+  /**
+   * Per-turn breakdown of the transcript. Required for casts wider than two,
+   * which Gemini cannot voice in a single multi-speaker call.
+   */
+  segments?: Array<{ speaker: string; text: string }>;
   targetLang?: string;
 }
 
@@ -21,7 +26,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "hosts array is required" }, { status: 400 });
     }
 
-    const wav = await generateTts(body.transcript, body.hosts, body.targetLang);
+    const segments = (body.segments ?? []).filter(
+      s => s && typeof s.speaker === "string" && typeof s.text === "string" && s.text.trim().length > 0,
+    );
+
+    const wav = await generateShowAudio(body.transcript, body.hosts, segments, body.targetLang);
 
     // Dubbing into a language is a clear preference signal, and the only place
     // the memory bank can learn it.

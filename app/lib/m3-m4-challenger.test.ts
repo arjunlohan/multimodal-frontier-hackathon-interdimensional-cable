@@ -20,7 +20,7 @@ import {
   updateMemoryFromInteraction,
 } from "./memory-bank";
 import { cleanupTempFiles, extractFrame, stitchClips } from "./stitch";
-import { encodePcmToWav, generateSingleVoiceClip, generateTts, voiceForHost } from "./tts";
+import { encodePcmToWav, generateShowAudio, generateSingleVoiceClip, generateTts, voiceForHost } from "./tts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mocks for External Dependencies & Database
@@ -278,7 +278,7 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
       expect(voiceForHost({ name: "Mysterious Guest" }, 7)).toBe("Charon"); // wrapped
     });
 
-    it("formats multi-speaker dialogue speechConfig correctly for mixed string and object hosts", async () => {
+    it("formats multi-speaker dialogue speechConfig correctly for a two-hander", async () => {
       const fakePcmBase64 = Buffer.from([0x01, 0x02, 0x03, 0x04]).toString("base64");
       mockGenerateContent.mockResolvedValueOnce({
         candidates: [{
@@ -291,11 +291,9 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
       const hosts = [
         "John Oliver",
         { name: "Speculative Host", ttsVoice: "Fenrir" },
-        { name: "Sidekick", voice: "Aoede" },
-        { name: "Unmapped Guest" },
       ];
 
-      const transcript = "John: Look at this.\nSpeculative Host: Whoa!\nSidekick: Incredible.\nUnmapped Guest: Indeed.";
+      const transcript = "John: Look at this.\nSpeculative Host: Whoa!";
       const wav = await generateTts(transcript, hosts as any);
 
       expect(mockGenerateContent).toHaveBeenCalledWith(
@@ -307,8 +305,6 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
                 speakerVoiceConfigs: [
                   { speaker: "John Oliver", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } } },
                   { speaker: "Speculative Host", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Fenrir" } } },
-                  { speaker: "Sidekick", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } },
-                  { speaker: "Unmapped Guest", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Fenrir" } } }, // index 3 fallback
                 ],
               },
             },
@@ -319,6 +315,60 @@ describe("m3/m4 empirical challenger: media engine & memory bank stress testing"
       );
 
       expect(wav.length).toBe(48); // 44 header + 4 data
+    });
+
+    it("refuses a single multi-speaker call for a cast Gemini cannot voice", async () => {
+      // Three or more speakers is a 400 from the real API. Failing here, with a
+      // message naming the limit, beats surfacing an opaque upstream error.
+      const hosts = [
+        "John Oliver",
+        { name: "Speculative Host" },
+        { name: "Sidekick" },
+        { name: "Unmapped Guest" },
+      ];
+
+      await expect(generateTts("A: x\nB: y", hosts as any)).rejects.toThrow(
+        /at most 2 speakers per call, got 4/,
+      );
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it("voices a four-handed panel one turn at a time, each in its own voice", async () => {
+      const pcmFor = (byte: number) => Buffer.from([byte, byte]).toString("base64");
+      for (let i = 0; i < 4; i++) {
+        mockGenerateContent.mockResolvedValueOnce({
+          candidates: [{
+            content: { parts: [{ inlineData: { data: pcmFor(i + 1), mimeType: "audio/pcm" } }] },
+          }],
+        });
+      }
+
+      const hosts = [
+        { name: "Chamath Capitalia", ttsVoice: "Charon" },
+        { name: "Jason Calamaris", ttsVoice: "Puck" },
+        { name: "David Stacks", ttsVoice: "Orus" },
+        { name: "David Friedegg", ttsVoice: "Fenrir" },
+      ];
+      const segments = [
+        { speaker: "Chamath Capitalia", text: "Structurally, this was always going to happen." },
+        { speaker: "Jason Calamaris", text: "Can I finish?" },
+        { speaker: "David Stacks", text: "That's just not what the data says." },
+        { speaker: "David Friedegg", text: "Zoom out for a second." },
+      ];
+
+      const wav = await generateShowAudio("full transcript", hosts as any, segments);
+
+      // One call per turn, not one call for the show.
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
+
+      // Each turn goes out as a single-speaker request in that host's voice.
+      const voicesUsed = mockGenerateContent.mock.calls.map(
+        (c: any) => c[0].config.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,
+      );
+      expect(voicesUsed).toEqual(["Charon", "Puck", "Orus", "Fenrir"]);
+
+      // 44-byte header + 2 bytes of PCM per turn.
+      expect(wav.length).toBe(44 + 8);
     });
 
     it("generates single-speaker voice clip data URI with custom object host", async () => {

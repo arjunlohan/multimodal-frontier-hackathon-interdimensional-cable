@@ -147,6 +147,7 @@ export function WatchContent({ show, template }: WatchContentProps) {
             <DubbingPanel
               transcript={show.transcript}
               hosts={hosts}
+              segments={segments.map(s => ({ speaker: s.speaker, text: s.text }))}
             />
           )}
 

@@ -214,6 +214,12 @@ export function encodePcmToWav(pcm: Buffer): Buffer {
 // TTS generation
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Speakers Gemini's multi-speaker TTS accepts in one call. Three or more is
+ * rejected with a 400, so wider casts are voiced a turn at a time.
+ */
+export const MAX_MULTI_SPEAKER_VOICES = 2;
+
 const LANGUAGE_NAMES: Record<string, string> = {
   de: "German",
   es: "Spanish",
@@ -272,6 +278,12 @@ export async function generateTts(
   const textToSpeak = needsTranslation ?
       await translateTranscript(transcript, langName) :
     transcript;
+
+  if (hosts.length > MAX_MULTI_SPEAKER_VOICES) {
+    throw new Error(
+      `Gemini TTS voices at most ${MAX_MULTI_SPEAKER_VOICES} speakers per call, got ${hosts.length}. Use generateShowAudio, which voices wider casts a turn at a time.`,
+    );
+  }
 
   const client = getClient();
 
@@ -358,6 +370,101 @@ export async function generateTtsPerTurn(
   }
 
   return { wav: encodePcmToWav(Buffer.concat(chunks)), durations };
+}
+
+/**
+ * Translates every turn of a script in a single model call.
+ *
+ * Translating turn-by-turn would cost one request per turn and lose the
+ * surrounding context each line was written against. The turns go out as a
+ * JSON array and come back as one, so a ten-turn panel costs one call and the
+ * translator can see the whole conversation while rendering each line.
+ */
+export async function translateTurns(
+  turns: Array<{ speaker: string; text: string }>,
+  targetLang: string,
+): Promise<Array<{ speaker: string; text: string }>> {
+  const langName = LANGUAGE_NAMES[targetLang] ?? targetLang;
+  if (langName === "English" || turns.length === 0) {
+    return turns;
+  }
+
+  const client = getClient();
+  console.log("[tts] Batch-translating", turns.length, "turns to", langName);
+
+  const response = await client.models.generateContent({
+    config: { responseMimeType: "application/json" },
+    contents: [{
+      role: "user",
+      parts: [{
+        text: `Translate each line of this talk show transcript to ${langName}.
+Return ONLY a JSON array of strings — the translated text of each line, in the same order.
+The array MUST have exactly ${turns.length} entries. Do not add commentary, speaker labels, or notes.
+
+${JSON.stringify(turns.map(t => t.text))}`,
+      }],
+    }],
+    model: "gemini-3-flash-preview",
+  });
+
+  const raw = response.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!raw) {
+    throw new Error(`Translation to ${langName} returned no text`);
+  }
+
+  let translated: unknown;
+  try {
+    translated = JSON.parse(raw);
+  } catch {
+    throw new Error(`Translation to ${langName} returned unparseable JSON`);
+  }
+
+  if (!Array.isArray(translated) || translated.length !== turns.length) {
+    throw new Error(
+      `Translation to ${langName} returned ${Array.isArray(translated) ? translated.length : "a non-array"}, expected ${turns.length} lines`,
+    );
+  }
+
+  return turns.map((turn, i) => ({
+    speaker: turn.speaker,
+    text: typeof translated[i] === "string" ? (translated[i] as string) : turn.text,
+  }));
+}
+
+/**
+ * Synthesizes a whole episode, picking the synthesis path the cast size allows.
+ *
+ * Gemini's multi-speaker TTS accepts at most two speakers, so a panel wider
+ * than that has to be voiced a turn at a time. Callers should not have to know
+ * that: this picks the single multi-speaker call when it fits (one request,
+ * natural interleaved delivery) and per-turn synthesis when it does not.
+ *
+ * Per-turn synthesis translates up front in one batch rather than per turn,
+ * so a four-handed dub costs one translation call rather than one per line.
+ */
+export async function generateShowAudio(
+  transcript: string,
+  hosts: TtsHost[],
+  turns?: Array<{ speaker: string; text: string }>,
+  targetLang?: string,
+): Promise<Buffer> {
+  const withinMultiSpeakerLimit = hosts.length <= MAX_MULTI_SPEAKER_VOICES;
+
+  if (withinMultiSpeakerLimit || !turns || turns.length === 0) {
+    if (!withinMultiSpeakerLimit) {
+      // No per-turn breakdown available for a cast the single call cannot take.
+      // Failing here beats a 400 from the API with nothing explaining it.
+      throw new Error(
+        `This show has ${hosts.length} hosts and no per-turn transcript, so its audio cannot be synthesized. Gemini TTS voices at most ${MAX_MULTI_SPEAKER_VOICES} speakers per call.`,
+      );
+    }
+    return generateTts(transcript, hosts, targetLang);
+  }
+
+  const spokenTurns = targetLang ? await translateTurns(turns, targetLang) : turns;
+  // Text is already in the target language, so no per-turn translation.
+  const { wav } = await generateTtsPerTurn(spokenTurns, hosts);
+  return wav;
 }
 
 /**
