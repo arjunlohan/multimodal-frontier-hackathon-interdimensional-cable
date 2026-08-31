@@ -245,7 +245,24 @@ async function runWithShowKeys<T>(showId: string, fn: () => Promise<T>): Promise
   });
 
   const keys = decryptApiKeys(row?.encryptedApiKeys);
-  return keys ? withUserApiKeys(keys, fn) : fn();
+
+  try {
+    return await (keys ? withUserApiKeys(keys, fn) : fn());
+  } catch (err) {
+    // A step error loses its message crossing the workflow boundary, which is
+    // why failures surfaced as a bare "Show generation failed" with no way to
+    // tell a TTS speaker-limit rejection from a quota error. Record the real
+    // reason here, where every model-calling step already passes through.
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await db.update(schema.generatedShows)
+        .set({ error: message.slice(0, 1000) })
+        .where(eq(schema.generatedShows.id, showId));
+    } catch {
+      // Never let error reporting mask the original failure.
+    }
+    throw err;
+  }
 }
 
 /**
@@ -474,11 +491,27 @@ async function audioPodcastSynthesisStepImpl(
 
   console.log(`[workflow:podcast] Synthesizing ${segments.length} segments with Gemini 3.1 Flash TTS...`);
 
-  const fullTextToSpeak = segments
-    .map(s => (template.showType === "conversation" ? `${s.speaker}: ${s.text}` : s.text))
-    .join("\n\n");
+  // Gemini multi-speaker TTS accepts exactly two speakers; three or more is a
+  // 400. Anything wider has to be synthesized a turn at a time, which is also
+  // the only way each panellist keeps a distinct voice.
+  const needsPerTurn = hosts.length > 2;
 
-  const wavBuffer = await generateTts(fullTextToSpeak, hosts, show.language ?? "en");
+  let wavBuffer: Buffer;
+  let exactDurations: number[] | null = null;
+
+  if (needsPerTurn) {
+    console.log(`[workflow:podcast] ${hosts.length} hosts exceeds the 2-speaker TTS limit; synthesizing per turn.`);
+    const { generateTtsPerTurn } = await import("@/app/lib/tts");
+    const turns = segments.map(seg => ({ speaker: seg.speaker, text: seg.text }));
+    const result = await generateTtsPerTurn(turns, hosts, show.language ?? "en");
+    wavBuffer = result.wav;
+    exactDurations = result.durations;
+  } else {
+    const fullTextToSpeak = segments
+      .map(s => (template.showType === "conversation" ? `${s.speaker}: ${s.text}` : s.text))
+      .join("\n\n");
+    wavBuffer = await generateTts(fullTextToSpeak, hosts, show.language ?? "en");
+  }
 
   const tmpDir = path.join(os.tmpdir(), "interdimensional-cable");
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -498,7 +531,22 @@ async function audioPodcastSynthesisStepImpl(
   const actualDuration = wavDurationSeconds(wavBuffer);
 
   let timedSegments = segments;
-  if (actualDuration && actualDuration > 0) {
+  if (exactDurations && exactDurations.length === segments.length) {
+    // Measured per turn, so no apportioning is needed.
+    let cursor = 0;
+    timedSegments = segments.map((seg, i) => {
+      const startTimeSeconds = cursor;
+      const endTimeSeconds = cursor + exactDurations![i];
+      cursor = endTimeSeconds;
+      return {
+        ...seg,
+        startTimeSeconds: Number(startTimeSeconds.toFixed(3)),
+        endTimeSeconds: Number(endTimeSeconds.toFixed(3)),
+        durationSeconds: Number(exactDurations![i].toFixed(3)),
+      };
+    });
+    console.log(`[workflow:podcast] Transcript timed from measured per-turn audio (${cursor.toFixed(1)}s total)`);
+  } else if (actualDuration && actualDuration > 0) {
     const weights = segments.map(s => Math.max(1, (s.text ?? "").trim().split(/\s+/).filter(Boolean).length));
     const totalWeight = weights.reduce((a, b) => a + b, 0);
 

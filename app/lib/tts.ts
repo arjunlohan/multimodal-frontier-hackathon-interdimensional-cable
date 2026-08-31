@@ -325,6 +325,42 @@ export async function generateTts(
 }
 
 /**
+ * Synthesizes a multi-speaker script one turn at a time.
+ *
+ * Gemini's multi-speaker TTS accepts exactly two speakers — three or more is
+ * rejected with a 400 — so a four-handed panel cannot be produced in a single
+ * call. Each turn is instead synthesized on its own with that speaker's voice
+ * and the PCM concatenated, which keeps every host's voice distinct.
+ *
+ * It also yields exact per-segment durations rather than an estimate, because
+ * each turn's audio length is measured rather than apportioned.
+ */
+export async function generateTtsPerTurn(
+  turns: Array<{ speaker: string; text: string }>,
+  hosts: TtsHost[],
+  targetLang?: string,
+): Promise<{ wav: Buffer; durations: number[] }> {
+  const bytesPerSecond = 24000 * 1 * 2; // 24 kHz, mono, 16-bit
+  const chunks: Buffer[] = [];
+  const durations: number[] = [];
+
+  for (const turn of turns) {
+    const host =
+      hosts.find(h => (typeof h === "string" ? h : h.name) === turn.speaker) ??
+      hosts[0] ??
+      turn.speaker;
+
+    const wav = await generateTts(turn.text, [host], targetLang);
+    // Strip the 44-byte header; every clip comes back in the same PCM format.
+    const pcm = wav.subarray(44);
+    chunks.push(pcm);
+    durations.push(pcm.length / bytesPerSecond);
+  }
+
+  return { wav: encodePcmToWav(Buffer.concat(chunks)), durations };
+}
+
+/**
  * Generates a short spoken voice clip for a host (e.g., chat reply or on-demand tangent)
  * and returns it as a base64 Data URI ('data:audio/wav;base64,...').
  */
