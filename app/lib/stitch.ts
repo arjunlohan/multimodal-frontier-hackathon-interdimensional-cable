@@ -20,7 +20,8 @@ const FFMPEG = (() => {
   try {
     // eslint-disable-next-line ts/no-require-imports
     const bundled = require("ffmpeg-static") as string | null;
-    return bundled ?? "ffmpeg";
+    if (bundled && fs.existsSync(bundled)) return bundled;
+    return "ffmpeg";
   } catch {
     return "ffmpeg";
   }
