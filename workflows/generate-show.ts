@@ -13,6 +13,8 @@ import type { OmniAspectRatio, OmniResolution, VideoClipInterpolatedOptions, Vid
 
 import { closeStream, writeToStream } from "./workflow-progress";
 
+import type { Buffer } from "node:buffer";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
