@@ -481,8 +481,11 @@ async function generateDeskShowDraft(input: Pass2Input): Promise<HeadWriterDraft
   const primaryHost = skill.hosts[0] ?? { name: "John", role: "anchor" };
   const client = getClient();
 
-  if (!client || input.options?.forceMock) {
+  if (input.options?.forceMock) {
     return synthesizeDeterministicDeskDraft(input);
+  }
+  if (!client) {
+    throw new Error("No Google API key available for the head writer pass.");
   }
 
   const prompt = `SHOW CONFIGURATION:
@@ -569,8 +572,10 @@ Write a complete 3-Act HeadWriterDraft with ${clipBudgets.length} ComedicBeats m
 
     return validated;
   } catch (error) {
-    console.warn("[pass2-head-writer] Gemini call failed for desk show, falling back to deterministic synthesis:", error);
-    return synthesizeDeterministicDeskDraft(input);
+    // Not falling back. The deterministic skeleton is identical for every
+    // topic, so substituting it silently shipped the same episode repeatedly
+    // while reporting success.
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 
@@ -578,8 +583,11 @@ async function generatePodcastDraft(input: Pass2Input): Promise<HeadWriterDraft>
   const { researchBrief, skill, durationSeconds } = input;
   const client = getClient();
 
-  if (!client || input.options?.forceMock) {
+  if (input.options?.forceMock) {
     return synthesizeDeterministicPodcastDraft(input);
+  }
+  if (!client) {
+    throw new Error("No Google API key available for the head writer pass.");
   }
 
   const prompt = `SHOW CONFIGURATION:
@@ -653,8 +661,10 @@ Construct a dynamic multi-speaker conversation traversing core nodes and tangent
 
     return validated;
   } catch (error) {
-    console.warn("[pass2-head-writer] PODCAST DRAFT FELL BACK TO DETERMINISTIC SYNTHESIS. The episode will follow a fixed skeleton rather than written material. Cause:", error);
-    return synthesizeDeterministicPodcastDraft(input);
+    // Not falling back — see the desk path above. Three consecutive shows on
+    // unrelated topics produced near-identical transcripts because this path
+    // silently substituted a fixed skeleton.
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 

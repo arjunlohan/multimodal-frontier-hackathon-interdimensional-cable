@@ -137,3 +137,36 @@ describe("callback metadata never discards a written episode", () => {
     expect(CallbackLinkSchema.parse({ plantedInBeatId: "b1" })).toMatchObject({ plantedInBeatId: "b1" });
   });
 });
+
+describe("no silent fallback to canned content", () => {
+  it("fails rather than fabricating research when the model is unavailable", async () => {
+    const { runPass1Research } = await import("./pass1-research");
+    const { getShowSkill } = await import("../skills/registry");
+
+    // Three consecutive shows on unrelated topics produced near-identical
+    // transcripts because a failure here quietly returned a mock brief whose
+    // sources are invented, and the orchestrator then forced every later pass
+    // into mock too.
+    await expect(runPass1Research({
+      topic: "Anything at all",
+      topicType: "freetext",
+      familiarity: "familiar",
+      showSkill: getShowSkill("apocalyptic-satire")!,
+    })).rejects.toThrow();
+  });
+
+  it("still allows the deterministic skeleton when explicitly requested", async () => {
+    const { runPass1Research } = await import("./pass1-research");
+    const { getShowSkill } = await import("../skills/registry");
+
+    // Offline development and tests need it; production must not reach it.
+    const result = await runPass1Research({
+      topic: "Anything at all",
+      topicType: "freetext",
+      familiarity: "familiar",
+      showSkill: getShowSkill("apocalyptic-satire")!,
+      options: { forceMock: true },
+    });
+    expect(result.isMocked).toBe(true);
+  });
+});

@@ -84,7 +84,7 @@ export async function runDramaturgyPipeline(
     durationSeconds: input.durationSeconds,
     personalizationProfile,
     options: {
-      forceMock: input.options?.forceMock ?? pass1Result.isMocked,
+      forceMock: input.options?.forceMock ?? false,
       temperature: input.options?.temperature,
     },
   });
@@ -105,7 +105,7 @@ export async function runDramaturgyPipeline(
     skill,
     personalizationProfile,
     options: {
-      forceMock: input.options?.forceMock ?? pass1Result.isMocked,
+      forceMock: input.options?.forceMock ?? false,
       skipTableReadPrune: input.options?.skipTableReadPrune ?? false,
     },
   });

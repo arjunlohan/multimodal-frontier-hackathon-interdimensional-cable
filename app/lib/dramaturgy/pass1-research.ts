@@ -2,7 +2,7 @@ import { ThinkingLevel } from "@google/genai";
 
 import { getDefaultShowSkill } from "@/app/lib/skills/registry";
 
-import { MissingApiKeyError, requiresUserApiKeys, resolveVertexKey } from "../api-keys";
+import { MissingApiKeyError, resolveVertexKey } from "../api-keys";
 import { buildGenAIClient } from "../genai";
 
 import { ResearchBriefSchema } from "./schemas";
@@ -366,17 +366,7 @@ export async function runPass1Research(
     // The mock brief invents its own sources. That is a fine offline convenience
     // for local development, but on a deployment that requires visitor keys it
     // would hand someone a fabricated show labelled as grounded research.
-    if (requiresUserApiKeys()) {
-      throw new MissingApiKeyError();
-    }
-    console.warn("[pass1-research] Gemini API key not found. Falling back to deterministic mock brief.");
-    const brief = createMockResearchBrief(input);
-    return {
-      brief,
-      selectedAngle: brief.selectedAngle,
-      isMocked: true,
-      latencyMs: Date.now() - startTime,
-    };
+    throw new MissingApiKeyError();
   }
 
   const enableSearch = input.options?.enableSearch !== false;
@@ -419,15 +409,9 @@ Generate a comprehensive ResearchBrief JSON with verified facts, bizarre stats, 
       }
       parsedJson = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
-      console.warn("[pass1-research] Failed to parse JSON from Gemini response, falling back to mock:", parseError);
-      const brief = createMockResearchBrief(input);
-      return {
-        brief,
-        selectedAngle: brief.selectedAngle,
-        isMocked: true,
-        latencyMs: Date.now() - startTime,
-        rawResponse: rawText,
-      };
+      throw new Error(
+        `Research returned no parseable JSON. ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+      );
     }
 
     // Extract search grounding metadata from candidate if present
@@ -487,13 +471,9 @@ Generate a comprehensive ResearchBrief JSON with verified facts, bizarre stats, 
       rawResponse: rawText,
     };
   } catch (error) {
-    console.warn("[pass1-research] Error executing Pass 1 with Gemini. Gracefully degrading to mock:", error);
-    const brief = createMockResearchBrief(input);
-    return {
-      brief,
-      selectedAngle: brief.selectedAngle,
-      isMocked: true,
-      latencyMs: Date.now() - startTime,
-    };
+    // Deliberately not degrading to the mock brief. It fabricates example.com
+    // sources and reports them as grounded research, so a silent fallback ships
+    // an invented episode that looks successful. Failing is the honest outcome.
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
