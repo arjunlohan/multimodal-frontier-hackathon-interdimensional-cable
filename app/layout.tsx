@@ -1,5 +1,6 @@
 import "./globals.css";
 
+import { Analytics } from "@vercel/analytics/next";
 import { Space_Mono, Syne } from "next/font/google";
 
 import type { Metadata } from "next";
@@ -33,6 +34,7 @@ export default function RootLayout({
         style={{ fontFamily: "var(--font-syne), system-ui, sans-serif" }}
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );
